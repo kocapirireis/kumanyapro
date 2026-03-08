@@ -2053,7 +2053,7 @@
                         if (result.hata && result.hata.includes("Gecersiz guvenlik tokeni")) {
                             localStorage.removeItem('userToken');
                             localStorage.removeItem('girisYapildi');
-                            location.reload(); // Şifre ekranına zorla döndür
+                             // Şifre ekranına zorla döndür
                         }
                         throw new Error(result.hata || "Bilinmeyen API hatası");
                     }
