@@ -2045,170 +2045,46 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             // --- API ENTEGRASYONU ---
-            // ── Supabase Bağlantısı ──
-            const SB_URL = 'https://mrwqkwarsyhoyyjhxlsz.supabase.co';
-            const SB_KEY = 'sb_publishable_kSq8jfznRKvZhBTqZPN5fQ_PXyLuj7f';
-            const SB_HEADERS = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY };
-
-            async function sbFetch(path, options = {}) {
-                const res = await fetch(SB_URL + path, { ...options, headers: { ...SB_HEADERS, ...(options.headers || {}) } });
-                if (!res.ok) { let errMsg = 'Supabase hatası: ' + res.status; try { const err = await res.json(); errMsg = err.message || err.error || errMsg; } catch(e) {} throw new Error(errMsg); }
-                return res.status === 204 ? null : res.json();
-            }
-
-            // Stok hesaplama (hareketlerden)
-            function hesaplaStokMap(hareketler) {
-                const map = {};
-                hareketler.forEach(r => {
-                    const ad = r.urun_adi;
-                    const m = parseFloat(r.miktar) || 0;
-                    if (r.tip === 'BASLANGIC' || r.tip === 'SAYIM') map[ad] = m;
-                    else if (r.tip === 'GIRIS') map[ad] = (map[ad] || 0) + m;
-                    else if (r.tip === 'CIKIS') map[ad] = (map[ad] || 0) - m;
-                });
-                return map;
-            }
-
             async function apiCall(islem, payload = {}) {
-                console.log(`[Supabase] ${islem}`, payload);
+                if (typeof CONFIG === 'undefined' || !CONFIG.APPS_SCRIPT_URL || CONFIG.APPS_SCRIPT_URL.includes("BURAYA")) {
+                    console.warn("[TEST MODU] Backend APPS_SCRIPT_URL tanımlanmamış. İşlem simüle ediliyor: " + islem);
+                    if (islem === 'stokOku') return { urunler: [], sonHareketler: [] };
+                    if (islem === 'analizHesapla') return [];
+                    return { basarili: true, mesaj: "Test Modunda çalışıldı" };
+                }
+
+                // Token'ı localStorage'dan al (Giriş yapılmamışsa null gider, backend hata verir)
+                const storedToken = localStorage.getItem('userToken');
+                const data = { islem: islem, token: storedToken, ...payload };
+
+                console.log(`API ISTIKE (${islem}):`, data);
                 try {
-                    // ── tokenKontrol ── (Apps Script üzerinden)
-                    if (islem === 'tokenKontrol') {
-                        const data = { islem: 'tokenKontrol', token: payload.token };
-                        const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                            body: JSON.stringify(data)
-                        });
-                        if (!response.ok) throw new Error('Giriş hatası');
-                        const result = await response.json();
-                        return result.veri;
-                    }
+                    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(data)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    console.log(`API YANIT (${islem}):`, result);
 
-                    // ── ping ──
-                    if (islem === 'ping') return { basarili: true };
-
-                    // ── stokOku ──
-                    if (islem === 'stokOku') {
-                        const [urunlerRes, hareketlerRes] = await Promise.all([
-                            sbFetch('/rest/v1/urunler?select=*&order=ad.asc'),
-                            sbFetch('/rest/v1/hareketler?select=*&order=tarih.asc')
-                        ]);
-                        const stokMap = hesaplaStokMap(hareketlerRes);
-                        const urunler = urunlerRes.map(u => ({
-                            ad: u.ad, birim: u.birim, miktar: stokMap[u.ad] || 0,
-                            minStok: u.min_stok, kategori: u.kategori, takip: u.takip
-                        }));
-                        const sonHareketler = hareketlerRes.slice(-50).reverse().map(r => ({
-                            tarih: r.tarih, urunAdi: r.urun_adi, miktar: r.miktar,
-                            birim: r.birim, tip: r.tip, not: r.notlar, id: r.id
-                        }));
-                        return { urunler, sonHareketler };
-                    }
-
-                    // ── stokEkle ──
-                    if (islem === 'stokEkle') {
-                        const { urunler, tip, teslimatKalanlari } = payload;
-                        // Mevcut ürünleri al
-                        const mevcutlar = await sbFetch('/rest/v1/urunler?select=ad');
-                        const mevcutAdlar = mevcutlar.map(u => u.ad.toLowerCase().trim());
-                        const tarih = new Date().toISOString();
-
-                        const yeniUrunler = urunler.filter(u => !mevcutAdlar.includes(u.ad.toLowerCase().trim()))
-                            .map(u => ({ ad: u.ad, birim: u.birim || 'Kg', kategori: u.kategori || 'diger' }));
-                        if (yeniUrunler.length > 0) {
-                            await sbFetch('/rest/v1/urunler', { method: 'POST', body: JSON.stringify(yeniUrunler), headers: { Prefer: 'return=minimal' } });
+                    if (result.basarili === false) {
+                        if (result.hata && result.hata.includes("Gecersiz guvenlik tokeni")) {
+                            localStorage.removeItem('userToken');
+                            localStorage.removeItem('girisYapildi');
+                             // Şifre ekranına zorla döndür
                         }
-
-                        const rows = [];
-                        urunler.forEach(item => {
-                            // Supabase'deki gerçek adı bul (büyük/küçük harf uyumsuzluğunu düzelt)
-                            const gercekAd = mevcutlar.find(u => u.ad.toLowerCase().trim() === item.ad.toLowerCase().trim())?.ad || item.ad;
-                            if (tip === 'GIRIS' && item.eskiStok !== undefined && item.eskiStok !== '') {
-                                rows.push({ id: crypto.randomUUID(), tarih, urun_adi: gercekAd, miktar: parseFloat(item.eskiStok), birim: item.birim, tip: 'BASLANGIC', notlar: 'Teslimat ani mevcut stok' });
-                            }
-                            rows.push({ id: crypto.randomUUID(), tarih, urun_adi: gercekAd, miktar: parseFloat(item.miktar), birim: item.birim, tip: tip === 'BAŞLANGIÇ' ? 'BASLANGIC' : tip, notlar: item.notlar || '' });
-                        });
-                        await sbFetch('/rest/v1/hareketler', { method: 'POST', body: JSON.stringify(rows), headers: { Prefer: 'return=minimal' } });
-                        return true;
+                        throw new Error(result.hata || "Bilinmeyen API hatası");
                     }
-
-                    // ── hareketGeriAl ──
-                    if (islem === 'hareketGeriAl') {
-                        await sbFetch(`/rest/v1/hareketler?id=eq.${payload.id}`, { method: 'DELETE' });
-                        return true;
-                    }
-
-                    // ── topluHareketGeriAl ──
-                    if (islem === 'topluHareketGeriAl') {
-                        const ids = payload.ids.map(id => `"${id}"`).join(',');
-                        await sbFetch(`/rest/v1/hareketler?id=in.(${ids})`, { method: 'DELETE' });
-                        return true;
-                    }
-
-                    // ── takipGuncelle ──
-                    if (islem === 'takipGuncelle') {
-                        const { urunAdi, alan, deger } = payload;
-                        const col = alan === 'takip' ? 'takip' : alan === 'kategori' ? 'kategori' : null;
-                        if (!col) throw new Error('Geçersiz alan');
-                        await sbFetch(`/rest/v1/urunler?ad=eq.${encodeURIComponent(urunAdi)}`, { method: 'PATCH', body: JSON.stringify({ [col]: deger }), headers: { Prefer: 'return=minimal' } });
-                        return true;
-                    }
-
-                    // ── urunGecmisiSifirla ──
-                    if (islem === 'urunGecmisiSifirla') {
-                        const { urunAdi, baslangicMiktar } = payload;
-                        await sbFetch(`/rest/v1/hareketler?urun_adi=eq.${encodeURIComponent(urunAdi)}`, { method: 'DELETE' });
-                        await sbFetch('/rest/v1/hareketler', { method: 'POST', body: JSON.stringify([{ id: crypto.randomUUID(), tarih: new Date().toISOString(), urun_adi: urunAdi, miktar: baslangicMiktar, birim: '', tip: 'BASLANGIC', notlar: 'Sifirlama sonrasi' }]), headers: { Prefer: 'return=minimal' } });
-                        return true;
-                    }
-
-                    // ── tumSistemiSifirla ──
-                    if (islem === 'tumSistemiSifirla') {
-                        if (payload.onayKodu !== 'SIFIRLA') throw new Error('Onay kodu hatalı');
-                        await sbFetch('/rest/v1/hareketler?id=neq.""', { method: 'DELETE' });
-                        await sbFetch('/rest/v1/urunler?id=gt.0', { method: 'DELETE' });
-                        return true;
-                    }
-
-                    // ── analizHesapla ──
-                    if (islem === 'analizHesapla') {
-                        const [urunlerRes, hareketlerRes] = await Promise.all([
-                            sbFetch('/rest/v1/urunler?select=*'),
-                            sbFetch('/rest/v1/hareketler?select=*&order=tarih.asc')
-                        ]);
-                        const stokMap = hesaplaStokMap(hareketlerRes);
-                        const otuzGunOnce = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-                        return urunlerRes.map(u => {
-                            const tuketimler = hareketlerRes.filter(h => h.urun_adi === u.ad && h.tip === 'CIKIS' && new Date(h.tarih) > otuzGunOnce);
-                            const aylikTuketim = tuketimler.reduce((s, h) => s + parseFloat(h.miktar), 0);
-                            const mevcutStok = stokMap[u.ad] || 0;
-                            const kacAyYeter = aylikTuketim > 0 ? mevcutStok / aylikTuketim : 99;
-                            return { urunAdi: u.ad, mevcutStok, aylikTuketim, kacAyYeter: kacAyYeter.toFixed(1) };
-                        });
-                    }
-
-                    // ── faturaOku ── (Apps Script üzerinden Gemini - güvenli)
-                    if (islem === 'faturaOku') {
-                        const storedToken = localStorage.getItem('userToken');
-                        const data = { islem: 'faturaOku', token: storedToken, ...payload };
-                        const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                            body: JSON.stringify(data)
-                        });
-                        if (!response.ok) throw new Error('Fatura okuma hatası');
-                        const result = await response.json();
-                        if (result.basarili === false) throw new Error(result.hata || 'Fatura okunamadı');
-                        return result.veri;
-                    }
-
-                    throw new Error('Bilinmeyen işlem: ' + islem);
+                    return result.veri;
                 } catch (error) {
-                    console.error(`[Supabase] Hata (${islem}):`, error);
+                    console.error(`API Çağrısı Başarısız (${islem}):`, error);
                     throw error;
                 }
             }
+
+            // Apps Script "Isınma" (Warm-up) pingi - Arka planda sessizce çalışır
+            apiCall('ping').catch(() => { /* Ping hatası kritik değil, sessizce yoksay */ });
 
             lucide.createIcons();
 
