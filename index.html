@@ -2122,10 +2122,12 @@
 
                         const rows = [];
                         urunler.forEach(item => {
+                            // Supabase'deki gerçek adı bul (büyük/küçük harf uyumsuzluğunu düzelt)
+                            const gercekAd = mevcutlar.find(u => u.ad.toLowerCase().trim() === item.ad.toLowerCase().trim())?.ad || item.ad;
                             if (tip === 'GIRIS' && item.eskiStok !== undefined && item.eskiStok !== '') {
-                                rows.push({ id: crypto.randomUUID(), tarih, urun_adi: item.ad, miktar: parseFloat(item.eskiStok), birim: item.birim, tip: 'BASLANGIC', notlar: 'Teslimat ani mevcut stok' });
+                                rows.push({ id: crypto.randomUUID(), tarih, urun_adi: gercekAd, miktar: parseFloat(item.eskiStok), birim: item.birim, tip: 'BASLANGIC', notlar: 'Teslimat ani mevcut stok' });
                             }
-                            rows.push({ id: crypto.randomUUID(), tarih, urun_adi: item.ad, miktar: parseFloat(item.miktar), birim: item.birim, tip: tip === 'BAŞLANGIÇ' ? 'BASLANGIC' : tip, notlar: item.notlar || '' });
+                            rows.push({ id: crypto.randomUUID(), tarih, urun_adi: gercekAd, miktar: parseFloat(item.miktar), birim: item.birim, tip: tip === 'BAŞLANGIÇ' ? 'BASLANGIC' : tip, notlar: item.notlar || '' });
                         });
                         await sbFetch('/rest/v1/hareketler', { method: 'POST', body: JSON.stringify(rows), headers: { Prefer: 'return=minimal' } });
                         return true;
