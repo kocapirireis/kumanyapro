@@ -1923,6 +1923,25 @@
             </div>
         </div>
 
+        <!-- Duplicate Fatura Modal -->
+        <div id="duplicate-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="text-center mb-6">
+                    <div style="width:64px;height:64px;background:rgba(251,191,36,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                        <i data-lucide="copy" style="width:32px;height:32px;color:#fbbf24;"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2">Mükerrer Fatura!</h3>
+                    <p class="text-xs text-muted leading-relaxed">Bu fatura daha önce sisteme yüklenmiş görünüyor. Aynı ürünler tekrar stoka eklenecek.</p>
+                </div>
+                <div style="display:flex;gap:12px;margin-top:20px;">
+                    <button id="btn-duplicate-cancel"
+                        style="flex:1;background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);padding:12px;border-radius:10px;font-weight:600;cursor:pointer;font-size:14px;">Vazgeç</button>
+                    <button id="btn-duplicate-confirm"
+                        style="flex:1;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;color:white;padding:12px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;">Yine de Ekle</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Reset Confirmation Modal -->
         <div id="reset-modal" class="modal-overlay">
             <div class="modal-content">
@@ -2860,11 +2879,23 @@
                             if (parsedResult && parsedResult.urunler && parsedResult.urunler.length > 0) {
                                 const hash = faturaHashOlustur(parsedResult.urunler);
                                 if (faturaVarMi(hash)) {
-                                    if (!confirm("⚠️ Bu fatura daha önce yüklenmiş görünüyor! Yine de devam etmek istiyor musunuz?")) {
-                                        if (loader) loader.classList.remove('active');
-                                        cameraInput.value = '';
-                                        return;
-                                    }
+                                    if (loader) loader.classList.remove('active');
+                                    const dupModal = document.getElementById('duplicate-modal');
+                                    if (dupModal) dupModal.classList.add('active');
+                                    await new Promise((resolve) => {
+                                        document.getElementById('btn-duplicate-confirm').onclick = () => {
+                                            dupModal.classList.remove('active');
+                                            resolve(true);
+                                        };
+                                        document.getElementById('btn-duplicate-cancel').onclick = () => {
+                                            dupModal.classList.remove('active');
+                                            cameraInput.value = '';
+                                            resolve(false);
+                                        };
+                                    }).then((devamEt) => {
+                                        if (!devamEt) throw new Error('iptal');
+                                        if (loader) loader.classList.add('active');
+                                    });
                                 }
                                 faturaKaydet(hash);
                                 renderScannedItems(parsedResult.urunler, "success", "Resim işlendi");
@@ -2874,7 +2905,9 @@
                                 renderScannedItems([], "error", "Bu görselden herhangi bir ürün çıkarılamadı.");
                             }
                         } catch (apiError) {
-                            renderScannedItems([], "error", "Yapay Zeka hatası: " + apiError.message);
+                            if (apiError.message !== 'iptal') {
+                                renderScannedItems([], "error", "Yapay Zeka hatası: " + apiError.message);
+                            }
                         } finally {
                             if (loader) loader.classList.remove('active');
                         }
@@ -2985,10 +3018,7 @@
                                                         </div>
                                                 </div>
                                             </div>
-                                            <button class="absolute top-0 right-0 text-muted hover:text-danger btn-remove-scanned"
-                                                onclick="this.closest('li').remove()">
-                                                <i data-lucide="x-circle" style="width:18px;"></i>
-                                            </button>
+                                            <button class="btn-remove-scanned" onclick="this.closest('li').remove()" style="position:absolute;top:6px;right:6px;background:#ef4444;border:none;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;color:white;font-size:13px;font-weight:700;line-height:1;">✕</button>
                                         </div>
                                 </div>`;
                             checklist.appendChild(li);
