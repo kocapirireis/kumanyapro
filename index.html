@@ -2840,9 +2840,33 @@
                         if (loadingText) loadingText.textContent = "Yapay Zeka Analiz Ediyor...";
 
                         const cameraCta = document.querySelector('.camera-cta');
+
+                        // Duplicate fatura tespiti
+                        function faturaHashOlustur(urunler) {
+                            return urunler.map(u => `${u.ad}:${u.miktar}`).sort().join('|');
+                        }
+                        function faturaKaydet(hash) {
+                            const gecmis = JSON.parse(localStorage.getItem('faturaGecmis') || '[]');
+                            gecmis.unshift({ hash, tarih: new Date().toISOString() });
+                            localStorage.setItem('faturaGecmis', JSON.stringify(gecmis.slice(0, 10)));
+                        }
+                        function faturaVarMi(hash) {
+                            const gecmis = JSON.parse(localStorage.getItem('faturaGecmis') || '[]');
+                            return gecmis.some(f => f.hash === hash);
+                        }
+
                         try {
                             const parsedResult = await apiCall('faturaOku', { imageBase64: compressedImageBase64 });
                             if (parsedResult && parsedResult.urunler && parsedResult.urunler.length > 0) {
+                                const hash = faturaHashOlustur(parsedResult.urunler);
+                                if (faturaVarMi(hash)) {
+                                    if (!confirm("⚠️ Bu fatura daha önce yüklenmiş görünüyor! Yine de devam etmek istiyor musunuz?")) {
+                                        if (loader) loader.classList.remove('active');
+                                        cameraInput.value = '';
+                                        return;
+                                    }
+                                }
+                                faturaKaydet(hash);
                                 renderScannedItems(parsedResult.urunler, "success", "Resim işlendi");
                             } else if (parsedResult && parsedResult.hata) {
                                 renderScannedItems([], "error", parsedResult.hata);
