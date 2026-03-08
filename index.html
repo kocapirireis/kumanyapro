@@ -2143,7 +2143,7 @@
                     navItems.forEach(nav => nav.classList.remove('active'));
                     document.querySelector('[data-target="view-home"]').classList.add('active');
 
-                    await updateUI();
+                    if (window.updateUI) await window.updateUI();
                 };
 
                 // Otomatik Giriş Kontrolü
