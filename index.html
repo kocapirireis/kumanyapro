@@ -1671,7 +1671,7 @@
         <section id="view-inventory" class="view-section">
             <div class="search-bar glass relative">
                 <i data-lucide="search" class="text-muted"></i>
-                <input type="text" placeholder="Ürün ara... (örn: Un, Su)" oninput="updateUI()">
+                <input type="text" placeholder="Ürün ara... (örn: Un, Su)" oninput="window.globalUrunler ? renderInventoryList(window.globalUrunler) : updateUI()">
             </div>
 
             <div class="filter-pills">
@@ -2005,11 +2005,10 @@
         function setInventoryFilter(filter, element) {
             window.inventoryFilter = filter;
 
-            // UI Update: Active class
-            document.querySelectorAll('.pill-btn').forEach(opt => opt.classList.remove('active'));
+            // Sadece stok sayfasındaki pill butonlarını güncelle
+            document.querySelectorAll('#view-inventory .pill-btn').forEach(opt => opt.classList.remove('active'));
             if (element) element.classList.add('active');
 
-            // Listeyi güncelle
             if (window.renderInventoryList) {
                 window.renderInventoryList(window.globalUrunler);
             }
@@ -2419,10 +2418,15 @@
                 const container = document.getElementById('stok-sayim-items');
                 if (!container) return;
 
-                const data = await apiCall('stokOku');
-                if (!data || !data.urunler) return;
+                // globalUrunler varsa ekstra API çağrısı yapma
+                let urunlerData = window.globalUrunler;
+                if (!urunlerData || urunlerData.length === 0) {
+                    const data = await apiCall('stokOku');
+                    if (!data || !data.urunler) return;
+                    urunlerData = data.urunler;
+                }
 
-                const takipUrunler = data.urunler.filter(u => u.takip);
+                const takipUrunler = urunlerData.filter(u => u.takip);
                 container.innerHTML = takipUrunler.map(u => `
                     <div class="t-sayim-row" data-ad="${u.ad}" style="display:grid; grid-template-columns:2fr 1fr 1fr; align-items:center; padding:10px 0; border-bottom:1px solid #333;">
                         <span style="font-weight:bold; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-left:8px;" title="${u.ad}">${u.ad}</span>
@@ -2599,8 +2603,13 @@
                     // Ayarlar sayfasındaki son hareketleri (Son Fatura) güncelle
                     const settingsActivityList = document.getElementById('settings-recent-activity');
                     if (settingsActivityList && data.sonHareketler && data.sonHareketler.length > 0) {
+                        const latestMove = data.sonHareketler[0];
+                        const latestBatch = data.sonHareketler.filter(h =>
+                            h.tip === 'GIRIS' &&
+                            Math.abs(new Date(h.tarih) - new Date(latestMove.tarih)) < 60000
+                        );
                         const date = new Date(latestMove.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-                        const ids = latestBatch.map(h => h.id).join(',');
+                        const ids = latestBatch.length > 0 ? latestBatch.map(h => h.id).join(',') : latestMove.id;
 
                         settingsActivityList.innerHTML = `
                             <div class="settings-activity-item border-l-accent">
@@ -2621,7 +2630,8 @@
 
                     renderInventoryList(window.globalUrunler);
                 } catch (err) {
-                    // UI güncelleme hatası
+                    console.error('[updateUI] Hata:', err);
+                    showToast("Veriler yüklenirken bir sorun oluştu.", "error");
                 }
             }
 
@@ -2805,9 +2815,10 @@
                         document.querySelectorAll('.btn-sim-calc').forEach(btn => {
                             btn.addEventListener('click', async (e) => {
                                 const card = e.target.closest('.inventory-card');
-                                const urunAdi = card.querySelector('h4').textContent;
+                                if (!card) return;
+                                const urunAdi = card.getAttribute('data-isim');
                                 const simMiktar = card.querySelector('.o-sim-stok').value;
-                                if (simMiktar === "") return;
+                                if (!urunAdi || simMiktar === "") return;
 
                                 const map = {};
                                 map[urunAdi] = parseFloat(simMiktar);
@@ -2880,7 +2891,8 @@
                         }
                     }
                 } catch (err) {
-                    // Analiz yükleme hatası
+                    console.error('[updateAnalytics] Hata:', err);
+                    showToast("Analiz yüklenirken bir sorun oluştu.", "error");
                 }
             }
 
@@ -2936,10 +2948,17 @@
                 const urun = (window.globalUrunler || []).find(u => u.ad === urunAdi);
 
                 try {
-                    // Optimistic Update: Kategori için anında yer değiştirme
+                    // Optimistic Update: Kategori
                     if (alan === 'kategori' && urun) {
                         eskiDeger = urun.kategori || 'diger';
                         urun.kategori = deger;
+                        renderInventoryList(window.globalUrunler);
+                    }
+
+                    // Optimistic Update: Takip — filtre anında güncellenir
+                    if (alan === 'takip' && urun) {
+                        eskiDeger = urun.takip;
+                        urun.takip = deger;
                         renderInventoryList(window.globalUrunler);
                     }
 
@@ -2951,9 +2970,15 @@
                 } catch (err) {
                     showToast("Güncelleme hatası, işlem geri alınıyor.");
 
-                    // Revert Optimistic Update
+                    // Revert: Kategori
                     if (alan === 'kategori' && urun && eskiDeger !== null) {
                         urun.kategori = eskiDeger;
+                        renderInventoryList(window.globalUrunler);
+                    }
+
+                    // Revert: Takip
+                    if (alan === 'takip' && urun && eskiDeger !== null) {
+                        urun.takip = eskiDeger;
                         renderInventoryList(window.globalUrunler);
                     }
 
@@ -2968,10 +2993,14 @@
                 }
             };
 
-            // Arama Kutusu Canlı Arama
+            // Arama Kutusu — sadece mevcut veriyi filtreler, API çağrısı yapmaz
             const inventorySearch = document.querySelector('#view-inventory .search-bar input');
             if (inventorySearch) {
-                inventorySearch.addEventListener('input', () => updateUI());
+                inventorySearch.addEventListener('input', () => {
+                    if (window.globalUrunler) {
+                        renderInventoryList(window.globalUrunler);
+                    }
+                });
             }
 
             const btnRefreshAnalytics = document.getElementById('btn-refresh-analytics');
