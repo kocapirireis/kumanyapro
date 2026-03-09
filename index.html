@@ -1736,7 +1736,12 @@
                     <div class="scanned-items glass mt-2 hidden">
                         <div class="scanned-header">
                             <span class="font-bold o-fatura-baslik">Taranan Belge</span>
-                            <span class="text-xs px-2 py-1 rounded badge-status hidden">Bekleniyor</span>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <button id="btn-fotograf-temizle" style="background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35); color:#ef4444; font-size:11px; font-weight:600; padding:4px 10px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                                    <i data-lucide="trash-2" style="width:12px; height:12px;"></i> Temizle
+                                </button>
+                                <span class="text-xs px-2 py-1 rounded badge-status hidden">Bekleniyor</span>
+                            </div>
                         </div>
                         <div class="text-xs text-muted mb-2 o-fatura-detay">Lütfen bekleyin</div>
 
@@ -3100,7 +3105,7 @@
                 const scannerContainer = document.querySelector('.scanned-items');
 
                 // Badge ve Detay güncellemesi
-                const headerSpan = scannerContainer.querySelector('.scanned-header').querySelectorAll('span')[1];
+                const headerSpan = scannerContainer.querySelector('.badge-status');
                 const detailDiv = scannerContainer.querySelector('.o-fatura-detay');
 
                 if (status === "error") {
@@ -3300,6 +3305,129 @@
                     }
                 });
             }
+
+            // ── Fotoğrafı Temizle Butonu ──
+            const btnFotografTemizle = document.getElementById('btn-fotograf-temizle');
+            if (btnFotografTemizle) {
+                btnFotografTemizle.addEventListener('click', () => {
+                    // Fotoğraf input sıfırla
+                    const camInput = document.getElementById('camera-input');
+                    if (camInput) camInput.value = '';
+
+                    // Taranan listeyi gizle ve temizle
+                    const scannerContainer = document.querySelector('.scanned-items');
+                    if (scannerContainer) {
+                        scannerContainer.classList.add('hidden');
+                        const checklist = scannerContainer.querySelector('.checklist');
+                        if (checklist) checklist.innerHTML = '';
+                        const detailDiv = scannerContainer.querySelector('.o-fatura-detay');
+                        if (detailDiv) detailDiv.textContent = 'Lütfen bekleyin';
+                        const badge = scannerContainer.querySelector('.badge-status');
+                        if (badge) { badge.textContent = 'Bekleniyor'; badge.className = 'text-xs px-2 py-1 rounded badge-status hidden'; }
+                        const aramaKapsayici = document.getElementById('taranan-arama-kapsayici');
+                        if (aramaKapsayici) aramaKapsayici.classList.add('hidden');
+                        const btnStokaEkle = document.getElementById('btn-stoka-ekle');
+                        if (btnStokaEkle) btnStokaEkle.style.display = 'none';
+                    }
+
+                    showToast("Fotoğraf temizlendi. Yeni fatura çekebilirsiniz.", "info");
+                });
+            }
+
+            // ── Pull-to-Refresh ──
+            (function initPullToRefresh() {
+                const contentArea = document.querySelector('.content-area');
+                if (!contentArea) return;
+
+                // Pull-to-refresh gösterge elementi oluştur
+                const indicator = document.createElement('div');
+                indicator.id = 'ptr-indicator';
+                indicator.innerHTML = `<div id="ptr-spinner" style="width:22px;height:22px;border:3px solid rgba(14,165,233,0.2);border-top:3px solid var(--primary);border-radius:50%;transition:transform 0.2s;"></div><span id="ptr-text" style="font-size:12px;color:var(--primary);font-weight:600;margin-left:8px;">Yenilemek için çek</span>`;
+                indicator.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-60px);z-index:200;display:flex;align-items:center;background:rgba(14,165,233,0.1);backdrop-filter:blur(10px);border:1px solid rgba(14,165,233,0.25);padding:8px 18px;border-radius:30px;transition:transform 0.25s cubic-bezier(0.25,0.8,0.25,1),opacity 0.25s;opacity:0;pointer-events:none;';
+                document.body.appendChild(indicator);
+
+                let startY = 0;
+                let pulling = false;
+                let triggered = false;
+                const THRESHOLD = 70;
+
+                function getActiveView() {
+                    const active = document.querySelector('.view-section.active');
+                    return active ? active.id : null;
+                }
+
+                function isFaturaActive() {
+                    return getActiveView() === 'view-invoice';
+                }
+
+                contentArea.addEventListener('touchstart', (e) => {
+                    // Fatura sayfasında tamamen engelle
+                    if (isFaturaActive()) return;
+                    // Sadece en tepedeyken başlat
+                    if (contentArea.scrollTop > 5) return;
+                    startY = e.touches[0].clientY;
+                    pulling = true;
+                    triggered = false;
+                }, { passive: true });
+
+                contentArea.addEventListener('touchmove', (e) => {
+                    if (!pulling || isFaturaActive()) return;
+                    const dy = e.touches[0].clientY - startY;
+                    if (dy <= 0) { pulling = false; return; }
+
+                    const progress = Math.min(dy / THRESHOLD, 1);
+                    const translateY = Math.min(dy * 0.4, 50);
+                    const spinner = document.getElementById('ptr-spinner');
+
+                    indicator.style.transform = `translateX(-50%) translateY(${translateY - 60}px)`;
+                    indicator.style.opacity = Math.min(progress * 1.5, 1);
+
+                    if (spinner) spinner.style.transform = `rotate(${progress * 280}deg)`;
+
+                    const ptrText = document.getElementById('ptr-text');
+                    if (dy >= THRESHOLD && !triggered) {
+                        if (ptrText) ptrText.textContent = 'Bırak, yenile!';
+                        triggered = true;
+                    } else if (dy < THRESHOLD) {
+                        if (ptrText) ptrText.textContent = 'Yenilemek için çek';
+                        triggered = false;
+                    }
+                }, { passive: true });
+
+                contentArea.addEventListener('touchend', async () => {
+                    if (!pulling || isFaturaActive()) return;
+                    pulling = false;
+
+                    if (triggered) {
+                        // Spinner döndürme animasyonu
+                        const spinner = document.getElementById('ptr-spinner');
+                        const ptrText = document.getElementById('ptr-text');
+                        if (spinner) spinner.style.animation = 'spin 0.7s linear infinite';
+                        if (ptrText) ptrText.textContent = 'Yenileniyor...';
+                        indicator.style.transform = 'translateX(-50%) translateY(-10px)';
+                        indicator.style.opacity = '1';
+
+                        const activeView = getActiveView();
+                        try {
+                            if (activeView === 'view-home' || activeView === 'view-inventory') {
+                                await updateUI();
+                            } else if (activeView === 'view-analytics') {
+                                await updateAnalytics();
+                            }
+                            showToast("Veriler güncellendi.", "success");
+                        } catch(e) {
+                            showToast("Güncelleme başarısız.", "error");
+                        }
+
+                        if (spinner) spinner.style.animation = '';
+                    }
+
+                    // Indikatörü gizle
+                    indicator.style.transform = 'translateX(-50%) translateY(-60px)';
+                    indicator.style.opacity = '0';
+                    triggered = false;
+                }, { passive: true });
+            })();
 
             function compressImage(file, maxWidthOrHeight, quality) {
                 return new Promise((resolve, reject) => {
