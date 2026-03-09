@@ -2,7 +2,7 @@
   "name": "KumanyaPro",
   "short_name": "KumanyaPro",
   "description": "Gemi Stok Yönetim Sistemi",
-  "start_url": "/kumanyapro/",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#050b14",
   "theme_color": "#0ea5e9",
