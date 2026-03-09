@@ -2324,10 +2324,21 @@
                     navItems.forEach(nav => nav.classList.remove('active'));
                     document.querySelector('[data-target="view-home"]').classList.add('active');
 
-                    await updateUI();
+                    if (window.updateUI) await window.updateUI();
                 };
 
-                // Otomatik Giriş Kontrolü — updateUI tanımlandıktan sonra aşağıda çalışır
+                // Otomatik Giriş Kontrolü
+                const savedToken = localStorage.getItem('userToken');
+                if (savedToken && (localStorage.getItem('girisYapildi') === 'true' || savedToken.length > 0)) {
+                    await uygulamaAc(savedToken);
+                    await window.updateUI();
+                } else {
+                    // İlk açılışta home view aktifse veriler yüklensin
+                    const homeView = document.getElementById('view-home');
+                    if (homeView && homeView.classList.contains('active')) {
+                        // Giriş yapılmamış, login ekranı göster
+                    }
+                }
 
                 btnLogin.addEventListener('click', async () => {
                     const girilenSifre = loginPassword.value;
@@ -2995,11 +3006,6 @@
                 }
             };
 
-            // Otomatik Giriş Kontrolü — updateUI tanımlandıktan sonra çalışır
-            if (localStorage.getItem('girisYapildi') === 'true' && localStorage.getItem('userToken')) {
-                await uygulamaAc(localStorage.getItem('userToken'));
-            }
-
             // Arama Kutusu — sadece mevcut veriyi filtreler, API çağrısı yapmaz
             const inventorySearch = document.querySelector('#view-inventory .search-bar input');
             if (inventorySearch) {
@@ -3399,6 +3405,7 @@
                     pulling = false;
 
                     if (triggered) {
+                        // Spinner döndürme animasyonu
                         const spinner = document.getElementById('ptr-spinner');
                         const ptrText = document.getElementById('ptr-text');
                         if (spinner) spinner.style.animation = 'spin 0.7s linear infinite';
