@@ -2278,6 +2278,26 @@
             const loginError = document.getElementById('login-error');
             if (bottomNav) bottomNav.style.display = 'none';
 
+            // Uygulamayı açma fonksiyonu
+            const uygulamaAc = async (token) => {
+                localStorage.setItem('userToken', token);
+                localStorage.setItem('girisYapildi', 'true');
+
+                if (loginError) {
+                    loginError.classList.remove('opacity-100');
+                    loginError.classList.add('opacity-0');
+                    loginError.style.visibility = 'hidden';
+                }
+
+                viewSections.forEach(section => section.classList.remove('active'));
+                document.getElementById('view-home').classList.add('active');
+                if (bottomNav) bottomNav.style.display = 'flex';
+                navItems.forEach(nav => nav.classList.remove('active'));
+                document.querySelector('[data-target="view-home"]').classList.add('active');
+
+                if (window.updateUI) await window.updateUI();
+            };
+
             if (btnLogin) {
                 const loginCard = document.getElementById('login-card');
                 const btnTogglePassword = document.getElementById('btn-toggle-password');
@@ -2309,30 +2329,7 @@
                     });
                 }
 
-                // Uygulamayı açma fonksiyonu
-                const uygulamaAc = async (token) => {
-                    localStorage.setItem('userToken', token);
-                    localStorage.setItem('girisYapildi', 'true');
-
-                    if (loginError) {
-                        loginError.classList.remove('opacity-100');
-                        loginError.classList.add('opacity-0');
-                        loginError.style.visibility = 'hidden';
-                    }
-
-                    viewSections.forEach(section => section.classList.remove('active'));
-                    document.getElementById('view-home').classList.add('active');
-                    if (bottomNav) bottomNav.style.display = 'flex';
-                    navItems.forEach(nav => nav.classList.remove('active'));
-                    document.querySelector('[data-target="view-home"]').classList.add('active');
-
-                    if (window.updateUI) await window.updateUI();
-                };
-
-                // Otomatik Giriş Kontrolü
-                if (localStorage.getItem('girisYapildi') === 'true' && localStorage.getItem('userToken')) {
-                    await uygulamaAc(localStorage.getItem('userToken'));
-                }
+                // Otomatik Giriş Kontrolü - aşağıda updateUI tanımlandıktan sonra çalışır
 
                 btnLogin.addEventListener('click', async () => {
                     const girilenSifre = loginPassword.value;
@@ -2904,6 +2901,11 @@
             }
 
             // PDF İndir İşlevi (Sipariş Listesi)
+            // Otomatik Giriş Kontrolü - updateUI tanımlandıktan sonra çalışır
+            if (localStorage.getItem('girisYapildi') === 'true' && localStorage.getItem('userToken')) {
+                await uygulamaAc(localStorage.getItem('userToken'));
+            }
+
             const btnDownloadSiparis = document.getElementById('btn-download-siparis');
             if (btnDownloadSiparis) {
                 btnDownloadSiparis.addEventListener('click', () => {
