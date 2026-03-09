@@ -2178,13 +2178,30 @@
                             sbFetch('/rest/v1/hareketler?select=*&order=tarih.asc')
                         ]);
                         const stokMap = hesaplaStokMap(hareketlerRes);
-                        const otuzGunOnce = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
                         return urunlerRes.map(u => {
-                            const tuketimler = hareketlerRes.filter(h => h.urun_adi === u.ad && h.tip === 'CIKIS' && new Date(h.tarih) > otuzGunOnce);
-                            const aylikTuketim = tuketimler.reduce((s, h) => s + parseFloat(h.miktar), 0);
+                            const urunHareketler = hareketlerRes.filter(h => h.urun_adi === u.ad);
+                            const cikislar = urunHareketler.filter(h => h.tip === 'CIKIS');
+                            let aylikTuketim = 0;
+                            if (cikislar.length > 0) {
+                                const otuzGunOnce = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+                                aylikTuketim = cikislar.filter(h => new Date(h.tarih) > otuzGunOnce).reduce((s, h) => s + parseFloat(h.miktar), 0);
+                            } else {
+                                const baslangiclar = urunHareketler.filter(h => h.tip === 'BASLANGIC').sort((a, b) => new Date(a.tarih) - new Date(b.tarih));
+                                const girisler = urunHareketler.filter(h => h.tip === 'GIRIS').sort((a, b) => new Date(a.tarih) - new Date(b.tarih));
+                                let toplamTuketim = 0, toplamGun = 0;
+                                for (let i = 0; i < baslangiclar.length; i++) {
+                                    const oncekiGiris = girisler.filter(g => new Date(g.tarih) < new Date(baslangiclar[i].tarih)).pop();
+                                    if (oncekiGiris) {
+                                        const tuketilen = parseFloat(oncekiGiris.miktar) - parseFloat(baslangiclar[i].miktar);
+                                        const gunFarki = (new Date(baslangiclar[i].tarih) - new Date(oncekiGiris.tarih)) / (1000 * 60 * 60 * 24);
+                                        if (tuketilen > 0 && gunFarki > 0) { toplamTuketim += tuketilen; toplamGun += gunFarki; }
+                                    }
+                                }
+                                if (toplamGun > 0) aylikTuketim = (toplamTuketim / toplamGun) * 30;
+                            }
                             const mevcutStok = stokMap[u.ad] || 0;
                             const kacAyYeter = aylikTuketim > 0 ? mevcutStok / aylikTuketim : 99;
-                            return { urunAdi: u.ad, mevcutStok, aylikTuketim, kacAyYeter: kacAyYeter.toFixed(1) };
+                            return { urunAdi: u.ad, mevcutStok, aylikTuketim: parseFloat(aylikTuketim.toFixed(2)), kacAyYeter: kacAyYeter.toFixed(1), kategori: (u.kategori || 'diger').toLowerCase() };
                         });
                     }
 
@@ -2497,7 +2514,7 @@
                                 <div class="glass p-3 flex justify-between items-center border-l-4 border-danger">
                                     <div>
                                         <h4 class="text-sm font-bold text-white">${item.urunAdi}</h4>
-                                        <p class="text-[11px] text-muted">Mevcut: ${item.mevcutStok} | Tüketim: ${item.aylikOrtalama}</p>
+                                        <p class="text-[11px] text-muted">Mevcut: ${item.mevcutStok} | Tüketim: ${item.aylikTuketim}</p>
                                     </div>
                                     <div class="text-right">
                                         <div class="text-danger font-bold text-sm">${item.kacAyYeter}</div>
@@ -2746,7 +2763,7 @@
                                     card.innerHTML = `
                                         <div class="text-[13px] font-bold truncate pr-1" title="${a.urunAdi}">${a.urunAdi}</div>
                                         <div class="${colorClass} font-bold text-[11px] text-center">${a.kacAyYeter}</div>
-                                        <div class="text-[11px] text-white font-bold text-center">${a.aylikOrtalama}</div>
+                                        <div class="text-[11px] text-white font-bold text-center">${a.aylikTuketim}</div>
                                         <div class="flex items-center gap-1.5 justify-end">
                                             <input type="number" class="bg-dark border border-white-10 rounded text-[11px] p-1 text-white text-center o-sim-stok w-full max-w-[55px]" placeholder="${a.mevcutStok}" step="0.01">
                                             <button class="text-primary btn-sim-calc p-1.5 flex items-center justify-center hover:bg-white-10 transition-colors flex-shrink-0" style="background:var(--white-10); border-radius:4px; border:none; cursor:pointer;" title="Hesapla">
