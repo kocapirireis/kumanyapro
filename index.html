@@ -2048,7 +2048,7 @@
             }, duration);
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             // --- API ENTEGRASYONU ---
             // ── Supabase Bağlantısı ──
             const SB_URL = 'https://mrwqkwarsyhoyyjhxlsz.supabase.co';
@@ -2329,7 +2329,7 @@
 
                 // Otomatik Giriş Kontrolü
                 if (localStorage.getItem('girisYapildi') === 'true' && localStorage.getItem('userToken')) {
-                    uygulamaAc(localStorage.getItem('userToken'));
+                    await uygulamaAc(localStorage.getItem('userToken'));
                 }
 
                 btnLogin.addEventListener('click', async () => {
