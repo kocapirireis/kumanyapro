@@ -2048,7 +2048,7 @@
             }, duration);
         }
 
-        document.addEventListener('DOMContentLoaded', async () => {
+        document.addEventListener('DOMContentLoaded', () => {
             // --- API ENTEGRASYONU ---
             // ── Supabase Bağlantısı ──
             const SB_URL = 'https://mrwqkwarsyhoyyjhxlsz.supabase.co';
@@ -2324,14 +2324,10 @@
                     navItems.forEach(nav => nav.classList.remove('active'));
                     document.querySelector('[data-target="view-home"]').classList.add('active');
 
-                    if (window.updateUI) await window.updateUI();
+                    await updateUI();
                 };
 
-                // Otomatik Giriş Kontrolü (updateUI tanımlandıktan sonra çağrılacak)
-                window._otomatikGirisToken = null;
-                if (localStorage.getItem('girisYapildi') === 'true' && localStorage.getItem('userToken')) {
-                    window._otomatikGirisToken = localStorage.getItem('userToken');
-                }
+                // Otomatik Giriş Kontrolü — updateUI tanımlandıktan sonra aşağıda çalışır
 
                 btnLogin.addEventListener('click', async () => {
                     const girilenSifre = loginPassword.value;
@@ -2639,11 +2635,6 @@
                     console.error('[updateUI] Hata:', err);
                     showToast("Veriler yüklenirken bir sorun oluştu.", "error");
                 }
-            }
-
-            // Otomatik Giriş — updateUI tanımlandıktan sonra çalıştır
-            if (window._otomatikGirisToken) {
-                await uygulamaAc(window._otomatikGirisToken);
             }
 
             window.renderInventoryList = function (urunler) {
@@ -3003,6 +2994,11 @@
                     }
                 }
             };
+
+            // Otomatik Giriş Kontrolü — updateUI tanımlandıktan sonra çalışır
+            if (localStorage.getItem('girisYapildi') === 'true' && localStorage.getItem('userToken')) {
+                uygulamaAc(localStorage.getItem('userToken'));
+            }
 
             // Arama Kutusu — sadece mevcut veriyi filtreler, API çağrısı yapmaz
             const inventorySearch = document.querySelector('#view-inventory .search-bar input');
@@ -3403,7 +3399,6 @@
                     pulling = false;
 
                     if (triggered) {
-                        // Spinner döndürme animasyonu
                         const spinner = document.getElementById('ptr-spinner');
                         const ptrText = document.getElementById('ptr-text');
                         if (spinner) spinner.style.animation = 'spin 0.7s linear infinite';
