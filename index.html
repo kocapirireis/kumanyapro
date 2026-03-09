@@ -2327,9 +2327,10 @@
                     if (window.updateUI) await window.updateUI();
                 };
 
-                // Otomatik Giriş Kontrolü
+                // Otomatik Giriş Kontrolü (updateUI tanımlandıktan sonra çağrılacak)
+                window._otomatikGirisToken = null;
                 if (localStorage.getItem('girisYapildi') === 'true' && localStorage.getItem('userToken')) {
-                    await uygulamaAc(localStorage.getItem('userToken'));
+                    window._otomatikGirisToken = localStorage.getItem('userToken');
                 }
 
                 btnLogin.addEventListener('click', async () => {
@@ -2638,6 +2639,11 @@
                     console.error('[updateUI] Hata:', err);
                     showToast("Veriler yüklenirken bir sorun oluştu.", "error");
                 }
+            }
+
+            // Otomatik Giriş — updateUI tanımlandıktan sonra çalıştır
+            if (window._otomatikGirisToken) {
+                await uygulamaAc(window._otomatikGirisToken);
             }
 
             window.renderInventoryList = function (urunler) {
