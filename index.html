@@ -2314,9 +2314,11 @@
                     localStorage.setItem('userToken', token);
                     localStorage.setItem('girisYapildi', 'true');
 
-                    loginError.classList.remove('opacity-100');
-                    loginError.classList.add('opacity-0');
-                    loginError.style.visibility = 'hidden';
+                    if (loginError) {
+                        loginError.classList.remove('opacity-100');
+                        loginError.classList.add('opacity-0');
+                        loginError.style.visibility = 'hidden';
+                    }
 
                     viewSections.forEach(section => section.classList.remove('active'));
                     document.getElementById('view-home').classList.add('active');
@@ -2328,16 +2330,8 @@
                 };
 
                 // Otomatik Giriş Kontrolü
-                const savedToken = localStorage.getItem('userToken');
-                if (savedToken && (localStorage.getItem('girisYapildi') === 'true' || savedToken.length > 0)) {
-                    await uygulamaAc(savedToken);
-                    await window.updateUI();
-                } else {
-                    // İlk açılışta home view aktifse veriler yüklensin
-                    const homeView = document.getElementById('view-home');
-                    if (homeView && homeView.classList.contains('active')) {
-                        // Giriş yapılmamış, login ekranı göster
-                    }
+                if (localStorage.getItem('girisYapildi') === 'true' && localStorage.getItem('userToken')) {
+                    await uygulamaAc(localStorage.getItem('userToken'));
                 }
 
                 btnLogin.addEventListener('click', async () => {
