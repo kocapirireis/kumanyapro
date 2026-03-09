@@ -3361,8 +3361,6 @@
                 }
 
                 contentArea.addEventListener('touchstart', (e) => {
-                    // Fatura sayfasında tamamen engelle
-                    if (isFaturaActive()) return;
                     // Sadece en tepedeyken başlat
                     if (contentArea.scrollTop > 5) return;
                     startY = e.touches[0].clientY;
@@ -3371,7 +3369,7 @@
                 }, { passive: true });
 
                 contentArea.addEventListener('touchmove', (e) => {
-                    if (!pulling || isFaturaActive()) return;
+                    if (!pulling) return;
                     const dy = e.touches[0].clientY - startY;
                     if (dy <= 0) { pulling = false; return; }
 
@@ -3395,7 +3393,7 @@
                 }, { passive: true });
 
                 contentArea.addEventListener('touchend', async () => {
-                    if (!pulling || isFaturaActive()) return;
+                    if (!pulling) return;
                     pulling = false;
 
                     if (triggered) {
@@ -3409,7 +3407,7 @@
 
                         const activeView = getActiveView();
                         try {
-                            if (activeView === 'view-home' || activeView === 'view-inventory') {
+                            if (activeView === 'view-home' || activeView === 'view-inventory' || activeView === 'view-invoice') {
                                 await updateUI();
                             } else if (activeView === 'view-analytics') {
                                 await updateAnalytics();
