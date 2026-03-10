@@ -1825,12 +1825,12 @@
                 </div>
 
                 <!-- Sticky Sütun Başlıkları -->
-                <div class="sticky z-40 bg-dark/95 border-b border-white-10 pt-6 pb-2 px-3 mb-2 text-[9px] font-bold text-muted uppercase tracking-wide gap-2"
-                    style="position: sticky; top: -20px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; align-items: center; z-index: 40; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
-                    <span class="text-left">Ürün Adı</span>
-                    <span class="text-center" style="line-height:1.2;">Stok<br>Bitiş</span>
-                    <span class="text-center" style="line-height:1.2;">Aylık<br>Tüketim</span>
-                    <span class="text-right pr-1" style="line-height:1.2;">Mevcut<br>Stok</span>
+                <div class="sticky z-40 bg-dark/95 border-b border-white-10 pt-4 pb-2 px-3 mb-2 font-bold text-muted uppercase"
+                    style="position: sticky; top: -20px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; align-items: end; z-index: 40; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 8px; letter-spacing: 0.03em; gap: 4px;">
+                    <span style="text-align:left;">Ürün Adı</span>
+                    <span style="text-align:center; line-height:1.3;">Stok<br>Bitiş</span>
+                    <span style="text-align:center; line-height:1.3;">Aylık<br>Tüketim</span>
+                    <span style="text-align:right; line-height:1.3; padding-right:4px;">Mevcut<br>Stok</span>
                 </div>
 
                 <div id="analytics-items" class="inventory-list mt-2">
@@ -2800,10 +2800,10 @@
                                     const birimLabel = a.birim || '';
 
                                     card.innerHTML = `
-                                        <div class="font-bold truncate" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${a.urunAdi}">${a.urunAdi}</div>
-                                        <div class="${colorClass} font-bold text-[11px] text-center">${omurLabel}</div>
-                                        <div class="text-[11px] text-white font-bold text-center">${a.aylikTuketim} <span class="text-muted font-normal">${birimLabel}</span></div>
-                                        <div class="text-[11px] text-white font-bold text-right">${a.mevcutStok} <span class="text-muted font-normal">${birimLabel}</span></div>
+                                        <div class="font-bold" style="font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${a.urunAdi}">${a.urunAdi}</div>
+                                        <div class="${colorClass} font-bold text-center" style="font-size:11px; white-space:nowrap;">${omurLabel}</div>
+                                        <div class="text-center text-muted" style="font-size:11px;">${a.aylikTuketim} ${birimLabel}</div>
+                                        <div class="text-right text-white font-bold" style="font-size:11px; padding-right:4px;">${a.mevcutStok} <span style="color:var(--text-muted); font-weight:400;">${birimLabel}</span></div>
                                     `;
                                     groupDiv.appendChild(card);
                                 });
