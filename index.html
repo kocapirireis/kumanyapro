@@ -2325,10 +2325,7 @@
                     });
                 }
 
-                // Otomatik Giriş Kontrolü
-                if (localStorage.getItem('girisYapildi') === 'true' && localStorage.getItem('userToken')) {
-                    await uygulamaAc(localStorage.getItem('userToken'));
-                }
+                // Otomatik giriş aşağıda updateUI tanımlandıktan sonra çalışır
 
                 btnLogin.addEventListener('click', async () => {
                     const girilenSifre = loginPassword.value;
@@ -2733,6 +2730,11 @@
                     }
                     lucide.createIcons();
                 }
+            }
+
+            // Otomatik Giriş Kontrolü - updateUI tanımlandıktan sonra çalışır
+            if (localStorage.getItem('girisYapildi') === 'true' && localStorage.getItem('userToken')) {
+                await uygulamaAc(localStorage.getItem('userToken'));
             }
 
             async function updateAnalytics(mevcutMap = {}) {
