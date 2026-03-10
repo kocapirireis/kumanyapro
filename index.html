@@ -3035,7 +3035,7 @@
 
                     try {
                         const loader = document.getElementById('fatura-loader');
-                        const loadingText = loader.querySelector('.loading-text');
+                        const loadingText = loader ? loader.querySelector('.loading-text') : null;
 
                         if (loader) loader.classList.add('active');
                         if (loadingText) loadingText.textContent = "Resim Sıkıştırılıyor...";
@@ -3068,20 +3068,23 @@
                                     if (loader) loader.classList.remove('active');
                                     const dupModal = document.getElementById('duplicate-modal');
                                     if (dupModal) dupModal.classList.add('active');
-                                    await new Promise((resolve) => {
+
+                                    const devamEt = await new Promise((resolve) => {
                                         document.getElementById('btn-duplicate-confirm').onclick = () => {
                                             dupModal.classList.remove('active');
                                             resolve(true);
                                         };
                                         document.getElementById('btn-duplicate-cancel').onclick = () => {
                                             dupModal.classList.remove('active');
-                                            cameraInput.value = '';
                                             resolve(false);
                                         };
-                                    }).then((devamEt) => {
-                                        if (!devamEt) throw new Error('iptal');
-                                        if (loader) loader.classList.add('active');
                                     });
+
+                                    if (!devamEt) {
+                                        cameraInput.value = '';
+                                        return; // İptal edildi, hiçbir şey gösterme
+                                    }
+                                    if (loader) loader.classList.add('active');
                                 }
                                 faturaKaydet(hash);
                                 renderScannedItems(parsedResult.urunler, "success", "Resim işlendi");
@@ -3091,9 +3094,7 @@
                                 renderScannedItems([], "error", "Bu görselden herhangi bir ürün çıkarılamadı.");
                             }
                         } catch (apiError) {
-                            if (apiError.message !== 'iptal') {
-                                renderScannedItems([], "error", "Yapay Zeka hatası: " + apiError.message);
-                            }
+                            renderScannedItems([], "error", "Yapay Zeka hatası: " + apiError.message);
                         } finally {
                             if (loader) loader.classList.remove('active');
                         }
@@ -3420,13 +3421,16 @@
                                         scannerContainer.classList.add('hidden');
                                         const checklist = scannerContainer.querySelector('.checklist');
                                         if (checklist) checklist.innerHTML = '';
-                                        const camInput = document.getElementById('camera-input');
-                                        if (camInput) camInput.value = '';
                                         const btnStokaEkle = document.getElementById('btn-stoka-ekle');
                                         if (btnStokaEkle) btnStokaEkle.style.display = 'none';
                                         const aramaKapsayici = document.getElementById('taranan-arama-kapsayici');
                                         if (aramaKapsayici) aramaKapsayici.classList.add('hidden');
                                     }
+                                    // Aynı dosya tekrar seçilebilsin diye input sıfırla
+                                    const camInput = document.getElementById('camera-input');
+                                    if (camInput) camInput.value = '';
+                                    // Fatura geçmişini temizle ki aynı fatura tekrar yüklenebilsin
+                                    localStorage.removeItem('faturaGecmis');
                                 }
                             } else if (activeView === 'view-analytics') {
                                 await updateAnalytics();
