@@ -2377,18 +2377,17 @@
             tabBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
                     tabBtns.forEach(b => b.classList.remove('active'));
-                    tabContents.forEach(c => { c.classList.remove('active', 'hidden'); c.style.display = 'none'; });
+                    tabContents.forEach(c => c.classList.remove('active'));
                     btn.classList.add('active');
                     const targetTab = document.getElementById(btn.getAttribute('data-tab'));
                     if (targetTab) {
                         targetTab.classList.add('active');
-                        targetTab.style.display = 'block';
                         if (targetTab.id === 'tab-stok-say') renderStokSayimList();
                     }
                 });
             });
 
-            tabContents.forEach(c => { if (!c.classList.contains('active')) c.style.display = 'none'; });
+            tabContents.forEach(c => { c.style.display = ''; });
 
             navItems.forEach(item => {
                 item.addEventListener('click', async (e) => {
@@ -3021,51 +3020,61 @@
             }
 
             const cameraInput = document.getElementById('camera-input');
-            if (cameraInput) {
-                cameraInput.addEventListener('change', async function (e) {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic') {
-                        showToast("Uyarı: Sistem .HEIC formatını desteklememektedir."); cameraInput.value = ''; return;
-                    }
 
-                    // İşlem başlarken önceki sonuç kutusunu tamamen gizle.
-                    const scannerContainer = document.querySelector('.scanned-items');
-                    if (scannerContainer) scannerContainer.classList.add('hidden');
+            async function handleCameraChange(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic') {
+                    showToast("Uyarı: Sistem .HEIC formatını desteklememektedir.");
+                    resetCameraInput();
+                    return;
+                }
+
+                const scannerContainer = document.querySelector('.scanned-items');
+                if (scannerContainer) scannerContainer.classList.add('hidden');
+
+                try {
+                    const loader = document.getElementById('fatura-loader');
+                    const loadingText = loader ? loader.querySelector('.loading-text') : null;
+
+                    if (loader) loader.classList.add('active');
+                    if (loadingText) loadingText.textContent = "Resim Sıkıştırılıyor...";
+
+                    const compressedImageBase64 = await compressImage(file, 1200, 0.7);
+                    if (loadingText) loadingText.textContent = "Yapay Zeka Analiz Ediyor...";
 
                     try {
-                        const loader = document.getElementById('fatura-loader');
-                        const loadingText = loader ? loader.querySelector('.loading-text') : null;
-
-                        if (loader) loader.classList.add('active');
-                        if (loadingText) loadingText.textContent = "Resim Sıkıştırılıyor...";
-
-                        const compressedImageBase64 = await compressImage(file, 1200, 0.7);
-
-                        if (loadingText) loadingText.textContent = "Yapay Zeka Analiz Ediyor...";
-
-                        const cameraCta = document.querySelector('.camera-cta');
-
-                        try {
-                            const parsedResult = await apiCall('faturaOku', { imageBase64: compressedImageBase64 });
-                            if (parsedResult && parsedResult.urunler && parsedResult.urunler.length > 0) {
-                                renderScannedItems(parsedResult.urunler, "success", "Resim işlendi");
-                            } else if (parsedResult && parsedResult.hata) {
-                                renderScannedItems([], "error", parsedResult.hata);
-                            } else {
-                                renderScannedItems([], "error", "Bu görselden herhangi bir ürün çıkarılamadı.");
-                            }
-                        } catch (apiError) {
-                            renderScannedItems([], "error", "Yapay Zeka hatası: " + apiError.message);
-                        } finally {
-                            if (loader) loader.classList.remove('active');
+                        const parsedResult = await apiCall('faturaOku', { imageBase64: compressedImageBase64 });
+                        if (parsedResult && parsedResult.urunler && parsedResult.urunler.length > 0) {
+                            renderScannedItems(parsedResult.urunler, "success", "Resim işlendi");
+                        } else if (parsedResult && parsedResult.hata) {
+                            renderScannedItems([], "error", parsedResult.hata);
+                        } else {
+                            renderScannedItems([], "error", "Bu görselden herhangi bir ürün çıkarılamadı.");
                         }
-                    } catch (error) {
-                        showToast("Resim işlenirken sorun oluştu.");
+                    } catch (apiError) {
+                        renderScannedItems([], "error", "Yapay Zeka hatası: " + apiError.message);
+                    } finally {
                         const loader = document.getElementById('fatura-loader');
                         if (loader) loader.classList.remove('active');
                     }
-                });
+                } catch (error) {
+                    showToast("Resim işlenirken sorun oluştu.");
+                    const loader = document.getElementById('fatura-loader');
+                    if (loader) loader.classList.remove('active');
+                }
+            }
+
+            function resetCameraInput() {
+                const old = document.getElementById('camera-input');
+                if (!old) return;
+                const newInput = old.cloneNode(false);
+                newInput.addEventListener('change', handleCameraChange);
+                old.parentNode.replaceChild(newInput, old);
+            }
+
+            if (cameraInput) {
+                cameraInput.addEventListener('change', handleCameraChange);
             }
 
             function renderScannedItems(urunler, status = "success", message = "") {
@@ -3278,8 +3287,7 @@
             if (btnFotografTemizle) {
                 btnFotografTemizle.addEventListener('click', () => {
                     // Fotoğraf input sıfırla
-                    const camInput = document.getElementById('camera-input');
-                    if (camInput) camInput.value = '';
+                    resetCameraInput();
 
                     // Taranan listeyi gizle ve temizle
                     const scannerContainer = document.querySelector('.scanned-items');
@@ -3388,10 +3396,8 @@
                                         const aramaKapsayici = document.getElementById('taranan-arama-kapsayici');
                                         if (aramaKapsayici) aramaKapsayici.classList.add('hidden');
                                     }
-                                    // Aynı dosya tekrar seçilebilsin diye input sıfırla
-                                    const camInput = document.getElementById('camera-input');
-                                    if (camInput) camInput.value = '';
-                                    // Fatura geçmişini temizle ki aynı fatura tekrar yüklenebilsin
+                                    // Input'u sıfırla ki aynı dosya tekrar seçilince change eventi tetiklensin
+                                    resetCameraInput();
                                     localStorage.removeItem('faturaGecmis');
                                 }
                             } else if (activeView === 'view-analytics') {
