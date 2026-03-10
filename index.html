@@ -1659,8 +1659,7 @@
             <!-- Recent Activity -->
             <div class="section-header mt-4">
                 <h3>Son Hareketler</h3>
-                <button class="text-btn text-muted"
-                    onclick="document.querySelector('[data-tab=\'tab-gecmis\']').click(); document.querySelector('[data-target=\'view-invoice\']').click();">Tümü</button>
+                <button id="btn-hareketler-tumu" class="text-btn text-muted">Tümü</button>
             </div>
             <div class="activity-list glass" id="home-activity-list">
                 <div class="activity-item py-3 text-center text-muted">Henüz hareket yok.</div>
@@ -1793,16 +1792,16 @@
             <!-- TAB 3: Geçmiş -->
             <div id="tab-gecmis" class="tab-content hidden">
                 <div class="flex justify-between items-center mb-4">
-                    <select class="bg-dark border border-white-10 rounded text-sm p-2 text-white">
+                    <select id="gecmis-filter" class="bg-dark border border-white-10 rounded text-sm p-2 text-white">
                         <option value="TUMU">Tüm İşlemler</option>
-                        <option value="GİRİŞ">Sadece Girişler</option>
-                        <option value="KALAN">Sadece Sayımlar</option>
-                        <option value="BAŞLANGIÇ">Başlangıçlar</option>
+                        <option value="GIRIS">Sadece Girişler</option>
+                        <option value="SAYIM">Sadece Sayımlar</option>
+                        <option value="BASLANGIC">Başlangıçlar</option>
                     </select>
                 </div>
 
-                <div class="activity-list glass">
-                    <div class="activity-item py-3 text-center text-muted">Aktivite bulunamadı.</div>
+                <div class="activity-list glass" id="gecmis-activity-list">
+                    <div class="activity-item py-3 text-center text-muted">Yükleniyor...</div>
                 </div>
             </div>
 
@@ -2380,6 +2379,7 @@
                         targetTab.classList.add('active');
                         targetTab.style.display = 'block';
                         if (targetTab.id === 'tab-stok-say') renderStokSayimList();
+                        if (targetTab.id === 'tab-gecmis') renderGecmisList();
                     }
                 });
             });
@@ -2568,32 +2568,26 @@
                         if (data.sonHareketler.length === 0) {
                             activityList.innerHTML = '<div class="activity-item py-3 text-center text-muted">Henüz hareket yok.</div>';
                         } else {
-                            activityList.innerHTML = '';
-                            data.sonHareketler.forEach(h => {
-                                const date = new Date(h.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
-                                const item = document.createElement('div');
-                                item.className = 'activity-item';
-                                const tipClass = h.tip === 'GIRIS' ? 'text-success' : (h.tip === 'CIKIS' ? 'text-danger' : 'text-primary');
-                                const icon = h.tip === 'GIRIS' ? 'download' : (h.tip === 'CIKIS' ? 'upload' : 'plus-circle');
-                                const tipLabel = h.tip === 'GIRIS' ? 'Giriş' : (h.tip === 'CIKIS' ? 'Çıkış' : h.tip === 'BASLANGIC' ? 'Başlangıç' : h.tip === 'SAYIM' ? 'Sayım' : h.tip);
-
-                                item.innerHTML = `
-                                    <div class="activity-icon bg-${h.tip === 'CIKIS' ? 'danger' : 'success'}-light text-${h.tip === 'CIKIS' ? 'danger' : 'success'}">
-                                        <i data-lucide="${icon}"></i>
-                                    </div>
-                                    <div class="activity-details">
-                                        <h4>${h.urunAdi}</h4>
-                                        <p>${date} • ${tipLabel}</p>
-                                    </div>
-                                    <div class="flex-col text-right">
-                                        <div class="activity-amount ${tipClass}">${h.miktar} ${h.birim || ''}</div>
-                                        <button class="text-xs text-muted mt-1 btn-geri-al" data-id="${h.id}" style="background:none;border:none;cursor:pointer;">Geri Al</button>
-                                    </div>
-                                `;
-                                activityList.appendChild(item);
-                            });
-                            lucide.createIcons();
+                            window.tumHareketler = data.sonHareketler;
+                            window.hareketlerGenisletildi = false;
+                            renderHomeActivity(5);
                         }
+                    }
+
+                    // Tümü butonu - aynı listede genişlet
+                    const btnTumu = document.getElementById('btn-hareketler-tumu');
+                    if (btnTumu) {
+                        btnTumu.onclick = () => {
+                            if (!window.hareketlerGenisletildi) {
+                                window.hareketlerGenisletildi = true;
+                                renderHomeActivity(window.tumHareketler ? window.tumHareketler.length : 5);
+                                btnTumu.textContent = 'Gizle';
+                            } else {
+                                window.hareketlerGenisletildi = false;
+                                renderHomeActivity(5);
+                                btnTumu.textContent = 'Tümü';
+                            }
+                        };
                     }
 
                     // Ayarlar sayfasındaki ürün listesini güncelle
@@ -2637,6 +2631,36 @@
                     console.error('[updateUI] Hata:', err);
                     showToast("Veriler yüklenirken bir sorun oluştu.", "error");
                 }
+            }
+
+            window.renderHomeActivity = function(limit) {
+                const activityList = document.getElementById('home-activity-list');
+                if (!activityList || !window.tumHareketler) return;
+                activityList.innerHTML = '';
+                const liste = window.tumHareketler.slice(0, limit);
+                liste.forEach(h => {
+                    const date = new Date(h.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+                    const item = document.createElement('div');
+                    item.className = 'activity-item';
+                    const tipClass = h.tip === 'GIRIS' ? 'text-success' : (h.tip === 'CIKIS' ? 'text-danger' : 'text-primary');
+                    const icon = h.tip === 'GIRIS' ? 'download' : (h.tip === 'CIKIS' ? 'upload' : 'plus-circle');
+                    const tipLabel = h.tip === 'GIRIS' ? 'Giriş' : (h.tip === 'CIKIS' ? 'Çıkış' : h.tip === 'BASLANGIC' ? 'Başlangıç' : h.tip === 'SAYIM' ? 'Sayım' : h.tip);
+                    item.innerHTML = `
+                        <div class="activity-icon bg-${h.tip === 'CIKIS' ? 'danger' : 'success'}-light text-${h.tip === 'CIKIS' ? 'danger' : 'success'}">
+                            <i data-lucide="${icon}"></i>
+                        </div>
+                        <div class="activity-details">
+                            <h4>${h.urunAdi}</h4>
+                            <p>${date} • ${tipLabel}</p>
+                        </div>
+                        <div class="flex-col text-right">
+                            <div class="activity-amount ${tipClass}">${h.miktar} ${h.birim || ''}</div>
+                            <button class="text-xs text-muted mt-1 btn-geri-al" data-id="${h.id}" style="background:none;border:none;cursor:pointer;">Geri Al</button>
+                        </div>
+                    `;
+                    activityList.appendChild(item);
+                });
+                lucide.createIcons();
             }
 
             window.renderInventoryList = function (urunler) {
