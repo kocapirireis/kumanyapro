@@ -1828,9 +1828,9 @@
                 <div class="sticky z-40 bg-dark/95 border-b border-white-10 pt-6 pb-2 px-3 mb-2 text-[9px] font-bold text-muted uppercase tracking-wide gap-2"
                     style="position: sticky; top: -20px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; align-items: center; z-index: 40; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
                     <span class="text-left">Ürün Adı</span>
-                    <span class="text-center">Stok Bitiş</span>
-                    <span class="text-center">Aylık Tüketim</span>
-                    <span class="text-right pr-1">Mevcut Stok</span>
+                    <span class="text-center" style="line-height:1.2;">Stok<br>Bitiş</span>
+                    <span class="text-center" style="line-height:1.2;">Aylık<br>Tüketim</span>
+                    <span class="text-right pr-1" style="line-height:1.2;">Mevcut<br>Stok</span>
                 </div>
 
                 <div id="analytics-items" class="inventory-list mt-2">
@@ -2776,8 +2776,9 @@
                                     card.style.display = 'grid';
                                     card.style.gridTemplateColumns = '2fr 1fr 1fr 1fr';
                                     card.style.alignItems = 'center';
-                                    card.style.padding = '8px 12px';
+                                    card.style.padding = '10px 12px';
                                     card.style.gap = '8px';
+                                    card.style.minHeight = '52px';
                                     card.setAttribute('data-isim', a.urunAdi.toLowerCase());
 
                                     // Ömür Renklendirme Mantığı
@@ -2799,15 +2800,10 @@
                                     const birimLabel = a.birim || '';
 
                                     card.innerHTML = `
-                                        <div class="text-[13px] font-bold truncate pr-1" title="${a.urunAdi}">${a.urunAdi}</div>
+                                        <div class="font-bold truncate" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${a.urunAdi}">${a.urunAdi}</div>
                                         <div class="${colorClass} font-bold text-[11px] text-center">${omurLabel}</div>
                                         <div class="text-[11px] text-white font-bold text-center">${a.aylikTuketim} <span class="text-muted font-normal">${birimLabel}</span></div>
-                                        <div class="flex items-center gap-1.5 justify-end">
-                                            <input type="number" class="bg-dark border border-white-10 rounded text-[11px] p-1 text-white text-center o-sim-stok w-full max-w-[55px]" placeholder="${a.mevcutStok}" step="0.01">
-                                            <button class="text-primary btn-sim-calc p-1.5 flex items-center justify-center hover:bg-white-10 transition-colors flex-shrink-0" style="background:var(--white-10); border-radius:4px; border:none; cursor:pointer;" title="Hesapla">
-                                                <i data-lucide="calculator" style="width:14px; height:14px;"></i>
-                                            </button>
-                                        </div>
+                                        <div class="text-[11px] text-white font-bold text-right">${a.mevcutStok} <span class="text-muted font-normal">${birimLabel}</span></div>
                                     `;
                                     groupDiv.appendChild(card);
                                 });
