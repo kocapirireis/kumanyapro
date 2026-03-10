@@ -3384,22 +3384,6 @@
                         try {
                             if (activeView === 'view-home' || activeView === 'view-inventory' || activeView === 'view-invoice') {
                                 await updateUI();
-                                // Fatura sayfasındaysa taranan listeyi temizle
-                                if (activeView === 'view-invoice') {
-                                    const scannerContainer = document.querySelector('.scanned-items');
-                                    if (scannerContainer) {
-                                        scannerContainer.classList.add('hidden');
-                                        const checklist = scannerContainer.querySelector('.checklist');
-                                        if (checklist) checklist.innerHTML = '';
-                                        const btnStokaEkle = document.getElementById('btn-stoka-ekle');
-                                        if (btnStokaEkle) btnStokaEkle.style.display = 'none';
-                                        const aramaKapsayici = document.getElementById('taranan-arama-kapsayici');
-                                        if (aramaKapsayici) aramaKapsayici.classList.add('hidden');
-                                    }
-                                    // Input'u sıfırla ki aynı dosya tekrar seçilince change eventi tetiklensin
-                                    resetCameraInput();
-                                    localStorage.removeItem('faturaGecmis');
-                                }
                             } else if (activeView === 'view-analytics') {
                                 await updateAnalytics();
                             }
