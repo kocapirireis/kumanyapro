@@ -1729,7 +1729,7 @@
                             onclick="document.getElementById('camera-input').click()">Kamerayı Aç / Seç</button>
                     </div>
 
-                    <div class="section-header mt-6">
+                    <div class="section-header mt-6 hidden" id="son-tarananlar-header">
                         <h3>Son Tarananlar (Önizleme)</h3>
                     </div>
 
@@ -2223,7 +2223,7 @@
                             }
                             const mevcutStok = stokMap[u.ad] || 0;
                             const kacAyYeter = aylikTuketim > 0 ? mevcutStok / aylikTuketim : 99;
-                            return { urunAdi: u.ad, mevcutStok, aylikTuketim: parseFloat(aylikTuketim.toFixed(2)), kacAyYeter: kacAyYeter.toFixed(1), kategori: (u.kategori || 'diger').toLowerCase(), birim: u.birim || '' };
+                            return { urunAdi: u.ad, mevcutStok, aylikTuketim: parseFloat(aylikTuketim.toFixed(1)), kacAyYeter: kacAyYeter.toFixed(1), kategori: (u.kategori || 'diger').toLowerCase(), birim: u.birim || '' };
                         });
                     }
 
@@ -2538,7 +2538,7 @@
                                 <div class="glass p-3 flex justify-between items-center" style="border-left: 4px solid var(--danger); margin-bottom: 8px; border-radius: 12px; border-top-left-radius: 4px; border-bottom-left-radius: 4px;">
                                     <div>
                                         <h4 class="text-sm font-bold text-white">${item.urunAdi}</h4>
-                                        <p class="text-[11px] text-muted">Mevcut: ${item.mevcutStok}</p>
+                                        <p class="text-[11px] text-muted">Mevcut: ${item.mevcutStok} ${item.birim || ''}</p>
                                     </div>
                                     <div class="text-right">
                                         <div class="text-danger font-bold text-sm">${surLabel}</div>
@@ -2802,7 +2802,7 @@
                                     card.innerHTML = `
                                         <div class="font-bold" style="font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${a.urunAdi}">${a.urunAdi}</div>
                                         <div class="${colorClass} font-bold" style="font-size:11px; white-space:nowrap; text-align:center;">${omurLabel}</div>
-                                        <div style="font-size:11px; color:var(--text-muted); text-align:center;">${a.aylikTuketim} ${birimLabel}</div>
+                                        <div style="font-size:11px; color:var(--text-muted); text-align:center; white-space:nowrap;">${a.aylikTuketim} ${birimLabel}</div>
                                         <div class="font-bold" style="font-size:11px; text-align:right; padding-right:4px;">${a.mevcutStok} <span style="color:var(--text-muted); font-weight:400;">${birimLabel}</span></div>
                                     `;
                                     groupDiv.appendChild(card);
@@ -3244,6 +3244,8 @@
                 }
 
                 scannerContainer.classList.remove('hidden');
+                const sonTarananlarHeader = document.getElementById('son-tarananlar-header');
+                if (sonTarananlarHeader) sonTarananlarHeader.classList.remove('hidden');
             }
 
             const btnStokaEkle = document.getElementById('btn-stoka-ekle');
@@ -3332,6 +3334,8 @@
                     const scannerContainer = document.querySelector('.scanned-items');
                     if (scannerContainer) {
                         scannerContainer.classList.add('hidden');
+                        const sonTarananlarHeader = document.getElementById('son-tarananlar-header');
+                        if (sonTarananlarHeader) sonTarananlarHeader.classList.add('hidden');
                         const checklist = scannerContainer.querySelector('.checklist');
                         if (checklist) checklist.innerHTML = '';
                         const detailDiv = scannerContainer.querySelector('.o-fatura-detay');
