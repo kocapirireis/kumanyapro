@@ -1791,17 +1791,8 @@
 
             <!-- TAB 3: Geçmiş -->
             <div id="tab-gecmis" class="tab-content hidden">
-                <div class="flex justify-between items-center mb-4">
-                    <select id="gecmis-filter" class="bg-dark border border-white-10 rounded text-sm p-2 text-white">
-                        <option value="TUMU">Tüm İşlemler</option>
-                        <option value="GIRIS">Sadece Girişler</option>
-                        <option value="SAYIM">Sadece Sayımlar</option>
-                        <option value="BASLANGIC">Başlangıçlar</option>
-                    </select>
-                </div>
-
-                <div class="activity-list glass" id="gecmis-activity-list">
-                    <div class="activity-item py-3 text-center text-muted">Yükleniyor...</div>
+                <div id="gecmis-fatura-list">
+                    <div class="py-6 text-center text-muted text-sm">Yükleniyor...</div>
                 </div>
             </div>
 
@@ -2413,6 +2404,87 @@
                     }
                 });
             });
+
+            async function renderGecmisList() {
+                const container = document.getElementById('gecmis-fatura-list');
+                if (!container) return;
+                container.innerHTML = '<div class="py-6 text-center text-muted text-sm">Yükleniyor...</div>';
+
+                try {
+                    const [urunlerRes, hareketlerRes] = await Promise.all([
+                        sbFetch('/rest/v1/urunler?select=ad,birim'),
+                        sbFetch('/rest/v1/hareketler?select=*&order=tarih.desc&tip=eq.GIRIS')
+                    ]);
+
+                    if (!hareketlerRes || hareketlerRes.length === 0) {
+                        container.innerHTML = '<div class="py-6 text-center text-muted text-sm">Henüz fatura girişi yok.</div>';
+                        return;
+                    }
+
+                    // Faturaları 2 dakika içindeki GIRIS kayıtlarını grupla
+                    const gruplar = [];
+                    let mevcutGrup = null;
+
+                    hareketlerRes.forEach(h => {
+                        if (h.tip !== 'GIRIS') return;
+                        const tarih = new Date(h.tarih);
+                        if (!mevcutGrup || (tarih - new Date(mevcutGrup.tarih)) < -120000) {
+                            mevcutGrup = { tarih: h.tarih, urunler: [] };
+                            gruplar.push(mevcutGrup);
+                        }
+                        mevcutGrup.urunler.push(h);
+                    });
+
+                    container.innerHTML = '';
+                    gruplar.forEach((grup, idx) => {
+                        const tarih = new Date(grup.tarih).toLocaleDateString('tr-TR', { 
+                            day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                        });
+                        const toplam = grup.urunler.length;
+
+                        const kart = document.createElement('div');
+                        kart.className = 'glass mb-3';
+                        kart.style.borderRadius = '12px';
+                        kart.style.overflow = 'hidden';
+
+                        kart.innerHTML = `
+                            <div class="fatura-kart-baslik" data-idx="${idx}" style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; cursor:pointer;">
+                                <div>
+                                    <div style="font-size:13px; font-weight:700; color:white;">📦 Fatura Girişi</div>
+                                    <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">${tarih} • ${toplam} ürün</div>
+                                </div>
+                                <i data-lucide="chevron-down" class="fatura-chevron" style="width:18px; height:18px; color:var(--primary); transition:transform 0.3s;"></i>
+                            </div>
+                            <div class="fatura-kart-detay" style="display:none; border-top:1px solid var(--border-color);">
+                                ${grup.urunler.map(u => `
+                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+                                        <span style="font-size:13px; font-weight:600; color:white;">${u.urun_adi}</span>
+                                        <span style="font-size:13px; font-weight:700; color:var(--success);">+${u.miktar} ${u.birim || ''}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+
+                        kart.querySelector('.fatura-kart-baslik').addEventListener('click', () => {
+                            const detay = kart.querySelector('.fatura-kart-detay');
+                            const chevron = kart.querySelector('.fatura-chevron');
+                            const acik = detay.style.display !== 'none';
+                            detay.style.display = acik ? 'none' : 'block';
+                            chevron.style.transform = acik ? 'rotate(0deg)' : 'rotate(180deg)';
+                        });
+
+                        container.appendChild(kart);
+                    });
+
+                    lucide.createIcons();
+
+                    if (gruplar.length === 0) {
+                        container.innerHTML = '<div class="py-6 text-center text-muted text-sm">Henüz fatura girişi yok.</div>';
+                    }
+                } catch(e) {
+                    container.innerHTML = '<div class="py-6 text-center text-muted text-sm">Veriler yüklenemedi.</div>';
+                }
+            }
 
             async function renderStokSayimList() {
                 const container = document.getElementById('stok-sayim-items');
