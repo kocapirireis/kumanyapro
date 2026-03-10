@@ -1791,8 +1791,17 @@
 
             <!-- TAB 3: Geçmiş -->
             <div id="tab-gecmis" class="tab-content hidden">
-                <div id="gecmis-fatura-list">
+                <!-- Üst: Fatura Listesi -->
+                <div id="gecmis-fatura-list" style="max-height:45vh; overflow-y:auto; margin-bottom:12px;">
                     <div class="py-6 text-center text-muted text-sm">Yükleniyor...</div>
+                </div>
+
+                <!-- Ayırıcı -->
+                <div style="border-top:2px solid var(--primary); opacity:0.3; margin-bottom:12px;"></div>
+
+                <!-- Alt: Seçilen Faturanın Ürünleri -->
+                <div id="gecmis-fatura-detay" class="glass" style="min-height:150px; border-radius:12px; padding:16px;">
+                    <div class="text-center text-muted text-sm py-4">Yukarıdan bir fatura seçin</div>
                 </div>
             </div>
 
@@ -2407,28 +2416,27 @@
 
             async function renderGecmisList() {
                 const container = document.getElementById('gecmis-fatura-list');
+                const detayContainer = document.getElementById('gecmis-fatura-detay');
                 if (!container) return;
                 container.innerHTML = '<div class="py-6 text-center text-muted text-sm">Yükleniyor...</div>';
 
                 try {
-                    const [urunlerRes, hareketlerRes] = await Promise.all([
-                        sbFetch('/rest/v1/urunler?select=ad,birim'),
-                        sbFetch('/rest/v1/hareketler?select=*&order=tarih.desc&tip=eq.GIRIS')
-                    ]);
+                    const hareketlerRes = await sbFetch('/rest/v1/hareketler?select=*&order=tarih.desc');
 
-                    if (!hareketlerRes || hareketlerRes.length === 0) {
+                    const girisler = hareketlerRes.filter(h => h.tip === 'GIRIS');
+
+                    if (!girisler || girisler.length === 0) {
                         container.innerHTML = '<div class="py-6 text-center text-muted text-sm">Henüz fatura girişi yok.</div>';
                         return;
                     }
 
-                    // Faturaları 2 dakika içindeki GIRIS kayıtlarını grupla
+                    // 2 dakika içindeki GIRIS kayıtlarını grupla
                     const gruplar = [];
                     let mevcutGrup = null;
 
-                    hareketlerRes.forEach(h => {
-                        if (h.tip !== 'GIRIS') return;
+                    girisler.forEach(h => {
                         const tarih = new Date(h.tarih);
-                        if (!mevcutGrup || (tarih - new Date(mevcutGrup.tarih)) < -120000) {
+                        if (!mevcutGrup || (new Date(mevcutGrup.tarih) - tarih) > 120000) {
                             mevcutGrup = { tarih: h.tarih, urunler: [] };
                             gruplar.push(mevcutGrup);
                         }
@@ -2436,51 +2444,55 @@
                     });
 
                     container.innerHTML = '';
+
                     gruplar.forEach((grup, idx) => {
-                        const tarih = new Date(grup.tarih).toLocaleDateString('tr-TR', { 
-                            day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                        const tarih = new Date(grup.tarih).toLocaleDateString('tr-TR', {
+                            day: 'numeric', month: 'long', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
                         });
-                        const toplam = grup.urunler.length;
 
                         const kart = document.createElement('div');
-                        kart.className = 'glass mb-3';
-                        kart.style.borderRadius = '12px';
-                        kart.style.overflow = 'hidden';
-
+                        kart.className = 'glass mb-2';
+                        kart.style.cssText = 'border-radius:10px; padding:12px 16px; cursor:pointer; transition:all 0.2s; display:flex; justify-content:space-between; align-items:center;';
                         kart.innerHTML = `
-                            <div class="fatura-kart-baslik" data-idx="${idx}" style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; cursor:pointer;">
-                                <div>
-                                    <div style="font-size:13px; font-weight:700; color:white;">📦 Fatura Girişi</div>
-                                    <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">${tarih} • ${toplam} ürün</div>
-                                </div>
-                                <i data-lucide="chevron-down" class="fatura-chevron" style="width:18px; height:18px; color:var(--primary); transition:transform 0.3s;"></i>
+                            <div>
+                                <div style="font-size:13px; font-weight:700; color:white;">📦 Fatura Girişi</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${tarih}</div>
                             </div>
-                            <div class="fatura-kart-detay" style="display:none; border-top:1px solid var(--border-color);">
+                            <div style="text-align:right;">
+                                <div style="font-size:13px; font-weight:700; color:var(--primary);">${grup.urunler.length} ürün</div>
+                            </div>
+                        `;
+
+                        kart.addEventListener('click', () => {
+                            // Aktif stili
+                            container.querySelectorAll('.glass').forEach(k => {
+                                k.style.borderColor = '';
+                                k.style.background = '';
+                            });
+                            kart.style.borderColor = 'var(--primary)';
+                            kart.style.background = 'rgba(14,165,233,0.1)';
+
+                            // Alt kısımda ürünleri göster
+                            detayContainer.innerHTML = `
+                                <div style="font-size:12px; font-weight:700; color:var(--primary); margin-bottom:10px; text-transform:uppercase; letter-spacing:0.05em;">${tarih}</div>
                                 ${grup.urunler.map(u => `
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
                                         <span style="font-size:13px; font-weight:600; color:white;">${u.urun_adi}</span>
                                         <span style="font-size:13px; font-weight:700; color:var(--success);">+${u.miktar} ${u.birim || ''}</span>
                                     </div>
                                 `).join('')}
-                            </div>
-                        `;
-
-                        kart.querySelector('.fatura-kart-baslik').addEventListener('click', () => {
-                            const detay = kart.querySelector('.fatura-kart-detay');
-                            const chevron = kart.querySelector('.fatura-chevron');
-                            const acik = detay.style.display !== 'none';
-                            detay.style.display = acik ? 'none' : 'block';
-                            chevron.style.transform = acik ? 'rotate(0deg)' : 'rotate(180deg)';
+                            `;
                         });
 
                         container.appendChild(kart);
                     });
 
-                    lucide.createIcons();
-
-                    if (gruplar.length === 0) {
-                        container.innerHTML = '<div class="py-6 text-center text-muted text-sm">Henüz fatura girişi yok.</div>';
+                    // İlk faturayı otomatik seç
+                    if (gruplar.length > 0) {
+                        container.querySelector('.glass').click();
                     }
+
                 } catch(e) {
                     container.innerHTML = '<div class="py-6 text-center text-muted text-sm">Veriler yüklenemedi.</div>';
                 }
