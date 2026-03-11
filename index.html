@@ -2220,7 +2220,7 @@
                             }
                             const mevcutStok = stokMap[u.ad] || 0;
                             const kacAyYeter = aylikTuketim > 0 ? mevcutStok / aylikTuketim : 99;
-                            return { urunAdi: u.ad, mevcutStok, aylikTuketim: parseFloat(aylikTuketim.toFixed(1)), kacAyYeter: kacAyYeter.toFixed(1), kategori: (u.kategori || 'diger').toLowerCase(), birim: u.birim || '' };
+                            return { urunAdi: u.ad, mevcutStok, aylikTuketim: parseFloat(aylikTuketim.toFixed(1)), kacAyYeter: kacAyYeter.toFixed(1), kategori: (u.kategori || 'diger').toLowerCase(), birim: u.birim || '', takip: u.takip };
                         });
                     }
 
@@ -2599,10 +2599,11 @@
                     const analizData = await apiCall('analizHesapla');
                     const lifeLimitedItems = analizData.filter(a => parseFloat(a.kacAyYeter) < 1);
 
-                    // Ortalama Stok Ömrü Hesabı
-                    if (analizData.length > 0) {
-                        const totalLife = analizData.reduce((sum, a) => sum + (parseFloat(a.kacAyYeter) || 0), 0);
-                        const avgLifeMonths = totalLife / analizData.length;
+                    // Ortalama Stok Ömrü Hesabı (sadece takipte + tüketim geçmişi olan ürünler)
+                    const tuketimliUrunler = analizData.filter(a => parseFloat(a.aylikTuketim) > 0 && a.takip);
+                    if (tuketimliUrunler.length > 0) {
+                        const totalLife = tuketimliUrunler.reduce((sum, a) => sum + (parseFloat(a.kacAyYeter) || 0), 0);
+                        const avgLifeMonths = totalLife / tuketimliUrunler.length;
                         const avgDaysDisplay = document.getElementById('avg-days');
                         if (avgDaysDisplay) {
                             if (avgLifeMonths >= 12) avgDaysDisplay.innerHTML = `${(avgLifeMonths / 12).toFixed(1)} <span class="text-xs font-normal">Yıl</span>`;
