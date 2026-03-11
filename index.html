@@ -3151,12 +3151,21 @@
 
                     try {
                         const loader = document.getElementById('fatura-loader');
-                        const loadingText = loader.querySelector('.loading-text');
+                        const loadingText = loader ? loader.querySelector('.loading-text') : null;
 
                         if (loader) loader.classList.add('active');
                         if (loadingText) loadingText.textContent = "Resim Sıkıştırılıyor...";
 
-                        const compressedImageBase64 = await compressImage(file, 1200, 0.7);
+                        let compressedImageBase64 = null;
+                        try {
+                            compressedImageBase64 = await compressImage(file, 1200, 0.7);
+                        } catch (compressErr) {
+                            console.error("Sıkıştırma Hatası:", compressErr);
+                            showToast("Görsel sıkıştırılamadı: " + (compressErr.message || "Bilinmeyen hata"), "error");
+                            if (loader) loader.classList.remove('active');
+                            cameraInput.value = '';
+                            return;
+                        }
 
                         if (!compressedImageBase64 || compressedImageBase64.length < 100) {
                             showToast("Görsel okunamadı, tekrar deneyin.", "error");
@@ -3167,20 +3176,25 @@
 
                         if (loadingText) loadingText.textContent = "Yapay Zeka Analiz Ediyor...";
 
-                        const cameraCta = document.querySelector('.camera-cta');
-
                         // Duplicate fatura tespiti
                         function faturaHashOlustur(urunler) {
-                            return urunler.map(u => `${u.ad}:${u.miktar}`).sort().join('|');
+                            if (!Array.isArray(urunler)) return '';
+                            return urunler.map(u => `${u.ad || ''}:${u.miktar || 0}`).sort().join('|');
                         }
                         function faturaKaydet(hash) {
-                            const gecmis = JSON.parse(localStorage.getItem('faturaGecmis') || '[]');
-                            gecmis.unshift({ hash, tarih: new Date().toISOString() });
-                            localStorage.setItem('faturaGecmis', JSON.stringify(gecmis.slice(0, 10)));
+                            if (!hash) return;
+                            try {
+                                const gecmis = JSON.parse(localStorage.getItem('faturaGecmis') || '[]');
+                                gecmis.unshift({ hash, tarih: new Date().toISOString() });
+                                localStorage.setItem('faturaGecmis', JSON.stringify(gecmis.slice(0, 10)));
+                            } catch (e) { console.warn("Fatura geçmişi kaydedilemedi:", e); }
                         }
                         function faturaVarMi(hash) {
-                            const gecmis = JSON.parse(localStorage.getItem('faturaGecmis') || '[]');
-                            return gecmis.some(f => f.hash === hash);
+                            if (!hash) return false;
+                            try {
+                                const gecmis = JSON.parse(localStorage.getItem('faturaGecmis') || '[]');
+                                return gecmis.some(f => f.hash === hash);
+                            } catch (e) { return false; }
                         }
 
                         try {
@@ -3191,20 +3205,23 @@
                                     if (loader) loader.classList.remove('active');
                                     const dupModal = document.getElementById('duplicate-modal');
                                     if (dupModal) dupModal.classList.add('active');
-                                    await new Promise((resolve) => {
-                                        document.getElementById('btn-duplicate-confirm').onclick = () => {
-                                            dupModal.classList.remove('active');
+                                    const devamEt = await new Promise((resolve) => {
+                                        const btnConfirm = document.getElementById('btn-duplicate-confirm');
+                                        const btnCancel = document.getElementById('btn-duplicate-cancel');
+
+                                        if (btnConfirm) btnConfirm.onclick = () => {
+                                            if (dupModal) dupModal.classList.remove('active');
                                             resolve(true);
                                         };
-                                        document.getElementById('btn-duplicate-cancel').onclick = () => {
-                                            dupModal.classList.remove('active');
+                                        if (btnCancel) btnCancel.onclick = () => {
+                                            if (dupModal) dupModal.classList.remove('active');
                                             cameraInput.value = '';
                                             resolve(false);
                                         };
-                                    }).then((devamEt) => {
-                                        if (!devamEt) throw new Error('iptal');
-                                        if (loader) loader.classList.add('active');
                                     });
+
+                                    if (!devamEt) throw new Error('iptal');
+                                    if (loader) loader.classList.add('active');
                                 }
                                 faturaKaydet(hash);
                                 renderScannedItems(parsedResult.urunler, "success", "Resim işlendi");
@@ -3215,13 +3232,15 @@
                             }
                         } catch (apiError) {
                             if (apiError.message !== 'iptal') {
+                                console.error("API Hatası:", apiError);
                                 renderScannedItems([], "error", "Yapay Zeka hatası: " + apiError.message);
                             }
                         } finally {
                             if (loader) loader.classList.remove('active');
                         }
                     } catch (error) {
-                        showToast("Resim işlenirken sorun oluştu.");
+                        console.error("Görsel İşleme Hatası:", error);
+                        showToast("Resim işlenirken beklenmedik bir sorun oluştu.");
                         const loader = document.getElementById('fatura-loader');
                         if (loader) loader.classList.remove('active');
                     }
@@ -3270,14 +3289,16 @@
                         checklist.innerHTML = `<div class="p-4 text-center text-danger text-sm glass">Pardon, sistem görselden mantıklı bir
     liste oluşturamadı. Lütfen görseli daha net çekmeyi deneyin.</div>`;
                     } else {
+                        if (!Array.isArray(urunler)) urunler = [];
                         // Uyarı içeren ürünleri listesinin en başına (yukarı) taşıyalım.
                         urunler.sort((a, b) => {
-                            const aUyariGecerli = a.uyari ? 1 : 0;
-                            const bUyariGecerli = b.uyari ? 1 : 0;
+                            const aUyariGecerli = (a && a.uyari) ? 1 : 0;
+                            const bUyariGecerli = (b && b.uyari) ? 1 : 0;
                             return bUyariGecerli - aUyariGecerli; // b - a ile 1 olanlar (uyarısı olanlar) üste çıkar
                         });
 
                         urunler.forEach((urun, idx) => {
+                            if (!urun) return;
                             const li = document.createElement('li'); li.className = 'mb-4 glass p-3';
                             li.innerHTML = `
                         <div class="flex items-start gap-3 relative">
@@ -3370,19 +3391,24 @@
             if (btnStokaEkle) {
                 btnStokaEkle.addEventListener('click', async () => {
                     const scannerContainer = document.querySelector('.scanned-items');
-                    const checklist = scannerContainer.querySelector('.checklist');
-                    const selectedItems = [];
-
-                    let hasUnitError = false;
+                    if (!checklist) {
+                        showToast("Hata: Ürün listesi bulunamadı.", "error");
+                        return;
+                    }
 
                     checklist.querySelectorAll('li').forEach(li => {
                         const checkbox = li.querySelector('.urun-onay-check');
                         if (checkbox && checkbox.checked) {
                             const inputBirim = li.querySelector('.o-birim');
+                            const inputMiktar = li.querySelector('.o-miktar');
+                            const inputAd = li.querySelector('.o-ad');
+
+                            if (!inputBirim || !inputMiktar || !inputAd) return;
+
                             let birimVal = (inputBirim.value || '').trim();
 
                             // Sayı (ondalıklı veya düz) + İzin verilen birim (kg, g, l, ml, adet) şeklinde kontrol sağlayan Regex
-                            const match = birimVal.match(/^(\d+(?:[.,]\d+)?)?\s*(kg|g|l|ml|adet)$/i);
+                            const match = birimVal.match(/^(\d+(?:[.,]\d+)?)?\s*(kg|g|l|ml|adet|Paket)$/i);
 
                             if (!match) {
                                 hasUnitError = true;
@@ -3391,28 +3417,39 @@
                                 void inputBirim.offsetWidth; // Animasyonu tetiklemek için reflow zorla
                                 inputBirim.classList.add('shake-animation');
                             } else {
-                                inputBirim.style.border = '1px solid var(--white-10)';
+                                inputBirim.style.border = '1px solid var(--border-color)';
                                 inputBirim.classList.remove('shake-animation');
 
                                 // Standartlaştırma (Sayı + Doğru Boyutlu Harf)
                                 let sayiKismi = match[1] || '';
-                                let harfKismi = match[2].toLowerCase();
+                                let harfKismi = (match[2] || '').toLowerCase();
 
                                 if (harfKismi === 'l') harfKismi = 'L';
                                 else if (harfKismi === 'ml') harfKismi = 'mL';
                                 else if (harfKismi === 'adet') harfKismi = 'Adet';
+                                else if (harfKismi === 'paket') harfKismi = 'Paket';
 
                                 // Boşlukları silip standart formata (sayı+Birim veya sadece Birim) dönüştürüyoruz
                                 let temizBirim = sayiKismi + harfKismi;
 
-                                const eskiStokVal = li.querySelector('.o-eski-stok').value;
+                                const miktarRaw = inputMiktar.value;
+                                const miktarVal = parseFloat(miktarRaw.replace(',', '.'));
+
+                                const eskiStokInput = li.querySelector('.o-eski-stok');
+                                const eskiStokRaw = eskiStokInput ? eskiStokInput.value : "";
+                                const eskiStokVal = (eskiStokRaw !== "") ? parseFloat(eskiStokRaw.replace(',', '.')) : undefined;
+
+                                const urunAd = (inputAd.value || 'Adsız Ürün').trim();
+                                const kategoriInput = li.querySelector('.o-kategori');
+                                const kategoriVal = kategoriInput ? (kategoriInput.value || 'diger') : 'diger';
+
                                 selectedItems.push({
-                                    ad: li.querySelector('.o-ad').value,
-                                    miktar: parseFloat(li.querySelector('.o-miktar').value),
+                                    ad: urunAd,
+                                    miktar: isNaN(miktarVal) ? 0 : miktarVal,
                                     birim: temizBirim,
-                                    kategori: li.querySelector('.o-kategori').value || 'diger',
+                                    kategori: kategoriVal,
                                     notlar: 'Fatura ile eklendi',
-                                    eskiStok: eskiStokVal !== "" ? parseFloat(eskiStokVal) : undefined
+                                    eskiStok: (eskiStokVal !== undefined && !isNaN(eskiStokVal)) ? eskiStokVal : undefined
                                 });
                             }
                         }
@@ -3565,23 +3602,62 @@
 
             function compressImage(file, maxWidthOrHeight, quality) {
                 return new Promise((resolve, reject) => {
-                    const reader = new FileReader(); reader.readAsDataURL(file);
+                    if (!file || !file.type.startsWith('image/')) {
+                        return reject(new Error('Geçerli bir resim dosyası seçilmedi.'));
+                    }
+
+                    const reader = new FileReader();
                     reader.onload = (e) => {
-                        const img = new Image(); img.src = e.target.result;
+                        const img = new Image();
                         img.onload = () => {
-                            let w = img.width, h = img.height;
-                            if (w > h) { if (w > maxWidthOrHeight) { h = Math.round((h * maxWidthOrHeight) / w); w = maxWidthOrHeight; } }
-                            else { if (h > maxWidthOrHeight) { w = Math.round((w * maxWidthOrHeight) / h); h = maxWidthOrHeight; } }
-                            const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
-                            const ctx = canvas.getContext('2d'); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w,
-                                h);
-                            const result = canvas.toDataURL('image/jpeg', quality);
-                            if (!result || result === 'data:,') reject(new Error('Canvas boş döndü'));
-                            else resolve(result);
+                            try {
+                                let w = img.width, h = img.height;
+                                if (!w || !h) {
+                                    return reject(new Error('Resim boyutları okunamadı.'));
+                                }
+
+                                if (w > h) {
+                                    if (w > maxWidthOrHeight) {
+                                        h = Math.round((h * maxWidthOrHeight) / w);
+                                        w = maxWidthOrHeight;
+                                    }
+                                } else {
+                                    if (h > maxWidthOrHeight) {
+                                        w = Math.round((w * maxWidthOrHeight) / h);
+                                        h = maxWidthOrHeight;
+                                    }
+                                }
+
+                                const canvas = document.createElement('canvas');
+                                canvas.width = w;
+                                canvas.height = h;
+                                const ctx = canvas.getContext('2d');
+
+                                if (!ctx) {
+                                    return reject(new Error('Kamera sistemi (Canvas) başlatılamadı.'));
+                                }
+
+                                // Beyaz arka plan (JPEG için saydamlığı önler)
+                                ctx.fillStyle = '#FFFFFF';
+                                ctx.fillRect(0, 0, w, h);
+                                ctx.drawImage(img, 0, 0, w, h);
+
+                                const result = canvas.toDataURL('image/jpeg', quality);
+
+                                if (!result || result === 'data:,' || result.length < 100) {
+                                    reject(new Error('Resim sıkıştırma işlemi boş sonuç döndürdü.'));
+                                } else {
+                                    resolve(result);
+                                }
+                            } catch (e) {
+                                reject(new Error('Sıkıştırma sırasında hata: ' + e.message));
+                            }
                         };
-                        img.onerror = reject;
+                        img.onerror = () => reject(new Error('Resim dosyası yüklenemedi.'));
+                        img.src = e.target.result;
                     };
-                    reader.onerror = reject;
+                    reader.onerror = () => reject(new Error('Dosya okuma hatası oluştu.'));
+                    reader.readAsDataURL(file);
                 });
             }
 
@@ -3604,14 +3680,19 @@
                 }
 
                 if (btnFatura) {
-                    const idsRaw = btnFatura.getAttribute('data-ids');
-                    if (!idsRaw || idsRaw.trim() === '') {
+                    const idsRaw = btnFatura.getAttribute('data-ids') || '';
+                    if (!idsRaw.trim()) {
                         showToast("Geri alınacak fatura verisi bulunamadı.", "warning");
                         return;
                     }
-                    const ids = idsRaw.split(',').filter(id => id.trim() !== '');
+
+                    // Güvenli split ve temizleme
+                    const ids = idsRaw.split(',')
+                        .map(id => (id || '').trim())
+                        .filter(id => id !== '');
+
                     if (ids.length === 0) {
-                        showToast("Geri alınacak fatura verisi bulunamadı.", "warning");
+                        showToast("Geri alınacak geçerli fatura kaydı bulunamadı.", "warning");
                         return;
                     }
 
