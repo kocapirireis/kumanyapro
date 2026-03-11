@@ -2850,7 +2850,8 @@
 
             async function updateAnalytics(mevcutMap = {}) {
                 try {
-                    const analizVerisi = await apiCall('analizHesapla', { mevcutStokMap: mevcutMap });
+                    const analizVerisiTum = await apiCall('analizHesapla', { mevcutStokMap: mevcutMap });
+                    const analizVerisi = analizVerisiTum.filter(a => a.takip);
                     const analyticsList = document.getElementById('analytics-items');
                     if (analyticsList) {
                         analyticsList.innerHTML = '';
