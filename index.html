@@ -3158,6 +3158,13 @@
 
                         const compressedImageBase64 = await compressImage(file, 1200, 0.7);
 
+                        if (!compressedImageBase64 || compressedImageBase64.length < 100) {
+                            showToast("Görsel okunamadı, tekrar deneyin.", "error");
+                            if (loader) loader.classList.remove('active');
+                            cameraInput.value = '';
+                            return;
+                        }
+
                         if (loadingText) loadingText.textContent = "Yapay Zeka Analiz Ediyor...";
 
                         const cameraCta = document.querySelector('.camera-cta');
@@ -3568,7 +3575,9 @@
                             const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
                             const ctx = canvas.getContext('2d'); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w,
                                 h);
-                            resolve(canvas.toDataURL('image/jpeg', quality));
+                            const result = canvas.toDataURL('image/jpeg', quality);
+                            if (!result || result === 'data:,') reject(new Error('Canvas boş döndü'));
+                            else resolve(result);
                         };
                         img.onerror = reject;
                     };
