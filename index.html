@@ -2096,6 +2096,12 @@
                 const timeoutId = setTimeout(() => controller.abort(), timeoutLimit);
 
                 try {
+                    console.log(`[API] ${islem} baslatıldı... URL:`, CONFIG.APPS_SCRIPT_URL);
+                    
+                    if (!CONFIG.APPS_SCRIPT_URL) {
+                        throw new Error("Apps Script URL'si yapılandırılmamış (config.js eksik).");
+                    }
+
                     const fetchOptions = {
                         method: 'POST',
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -2255,6 +2261,9 @@
                     clearTimeout(timeoutId);
                     if (error.name === 'AbortError') {
                         throw new Error('İslem zaman aşımına ugradı (Sunucu cok yavas). Lütfen tekrar deneyin.');
+                    }
+                    if (error instanceof TypeError && error.message === 'Failed to fetch' || error.message === 'Load failed') {
+                        throw new Error('Sunucuya baglanılamadı. Apps Script yayınının "Anyone" (Herkes) olarak ayarlandıgından ve internet bağlantınızdan emin olun.');
                     }
                     console.error('API Call Hatası:', error);
                     throw error;
@@ -3174,7 +3183,7 @@
 
                         let compressedImageBase64 = null;
                         try {
-                            compressedImageBase64 = await compressImage(file, 1200, 0.7);
+                            compressedImageBase64 = await compressImage(file, 1000, 0.6);
                         } catch (compressErr) {
                             console.error("Sıkıştırma Hatası:", compressErr);
                             showToast("Görsel sıkıştırılamadı: " + (compressErr.message || "Bilinmeyen hata"), "error");
