@@ -3183,7 +3183,7 @@
 
                         let compressedImageBase64 = null;
                         try {
-                            compressedImageBase64 = await compressImage(file, 1600, 0.85);
+                            compressedImageBase64 = await compressImage(file, 1000, 0.6);
                         } catch (compressErr) {
                             console.error("Sıkıştırma Hatası:", compressErr);
                             showToast("Görsel sıkıştırılamadı: " + (compressErr.message || "Bilinmeyen hata"), "error");
