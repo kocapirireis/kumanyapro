@@ -2090,16 +2090,27 @@
             }
 
             async function apiCall(islem, payload = {}) {
+                const controller = new AbortController();
+                // Uzun süren AI/OCR işlemleri için 60 saniye, diğerleri için 20 saniye timeout
+                const timeoutLimit = (islem === 'faturaOku' || islem === 'analizHesapla') ? 60000 : 20000;
+                const timeoutId = setTimeout(() => controller.abort(), timeoutLimit);
+
                 try {
-                    // ── tokenKontrol ── (Apps Script üzerinden)
+                    const fetchOptions = {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        signal: controller.signal
+                    };
+
+                    // ── tokenKontrol ──
                     if (islem === 'tokenKontrol') {
                         const data = { islem: 'tokenKontrol', token: payload.token };
                         const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            ...fetchOptions,
                             body: JSON.stringify(data)
                         });
-                        if (!response.ok) throw new Error('Giriş hatası');
+                        clearTimeout(timeoutId);
+                        if (!response.ok) throw new Error('Sunucu baglantısı kurulamadı (HTTP ' + response.status + ')');
                         const result = await response.json();
                         return result.veri;
                     }
@@ -2224,23 +2235,28 @@
                         });
                     }
 
-                    // ── faturaOku ── (Apps Script üzerinden Gemini - güvenli)
+                    // ── faturaOku ──
                     if (islem === 'faturaOku') {
                         const storedToken = localStorage.getItem('userToken');
                         const data = { islem: 'faturaOku', token: storedToken, ...payload };
                         const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            ...fetchOptions,
                             body: JSON.stringify(data)
                         });
-                        if (!response.ok) throw new Error('Fatura okuma hatası');
+                        clearTimeout(timeoutId);
+                        if (!response.ok) throw new Error('Yapay Zeka servisi yanıt vermedi (HTTP ' + response.status + ')');
                         const result = await response.json();
-                        if (result.basarili === false) throw new Error(result.hata || 'Fatura okunamadı');
+                        if (result.basarili === false) throw new Error(result.hata || 'Analiz basarısız');
                         return result.veri;
                     }
 
                     throw new Error('Bilinmeyen işlem: ' + islem);
                 } catch (error) {
+                    clearTimeout(timeoutId);
+                    if (error.name === 'AbortError') {
+                        throw new Error('İslem zaman aşımına ugradı (Sunucu cok yavas). Lütfen tekrar deneyin.');
+                    }
+                    console.error('API Call Hatası:', error);
                     throw error;
                 }
             }
