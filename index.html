@@ -3457,7 +3457,8 @@
 
                             selectedItems.push({
                                 ad: urunAd,
-                                miktar: isNaN(miktarVal) ? 0 : miktarVal,
+                                miktar: isNaN(miktarVal) ? 0 : miktarVal, // Geriye dönük uyumluluk
+                                toplam_stok: isNaN(miktarVal) ? 0 : miktarVal, // Supabase için net rakam
                                 birim: birimVal,
                                 kategori: kategoriVal,
                                 fatura_miktar: inputFaturaMiktar ? parseFloat(inputFaturaMiktar.value.replace(',', '.')) : 0,
@@ -3469,22 +3470,38 @@
                     });
 
                     if (hasUnitError) {
-                        showToast("Hata: Birim alanına sadece geçerli formatlar (örn: kg, g, L, mL, Adet, 500g, 1.5L) girilebilir!");
+                        showToast("Hata: Birim formatı geçersiz örneğin '5.6 KG' şeklinde olmalı!");
                         return;
                     }
 
                     if (selectedItems.length === 0) { showToast("Seçili ürün bulunamadı!"); return; }
+                    
                     try {
                         console.log("Kaydetme başladı (Stoka Ekle):", selectedItems);
-                        btnStokaEkle.disabled = true; btnStokaEkle.textContent = "Kaydediliyor...";
-                        await apiCall('stokEkle', { urunler: selectedItems, tip: 'GIRIS', teslimatKalanlari: [] });
-                        showToast("Ürünler stoka eklendi!");
-                        document.querySelector('.scanned-items').classList.add('hidden');
-                        document.getElementById('view-invoice').classList.remove('active');
-                        document.getElementById('view-home').classList.add('active');
-                        navItems.forEach(n => n.classList.remove('active'));
-                        document.querySelector('[data-target="view-home"]').classList.add('active');
-                    } catch (error) { showToast("Hata: " + error.message); } finally {
+                        btnStokaEkle.disabled = true; 
+                        btnStokaEkle.textContent = "Kaydediliyor...";
+                        
+                        const response = await apiCall('stokEkle', { 
+                            urunler: selectedItems, 
+                            tip: 'GIRIS', 
+                            teslimatKalanlari: [] 
+                        });
+                        
+                        if (response === true) {
+                            showToast("Ürünler stoka başarıyla eklendi!");
+                            document.querySelector('.scanned-items').classList.add('hidden');
+                            document.getElementById('view-invoice').classList.remove('active');
+                            document.getElementById('view-home').classList.add('active');
+                            navItems.forEach(n => n.classList.remove('active'));
+                            document.querySelector('[data-target="view-home"]').classList.add('active');
+                        } else {
+                            throw new Error("Sunucu yanıt vermedi.");
+                        }
+                    } catch (error) { 
+                        console.error("Kayıt Hatası:", error);
+                        alert("Kayıt sırasında bir hata oluştu: " + error.message);
+                        showToast("Kayıt Hatası: " + error.message); 
+                    } finally {
                         btnStokaEkle.disabled = false;
                         btnStokaEkle.textContent = "Stoka Ekle";
                     }
