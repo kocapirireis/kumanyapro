@@ -2081,7 +2081,7 @@
                 const map = {};
                 hareketler.forEach(r => {
                     const ad = r.urun_adi;
-                    const m = parseFloat(r.miktar) || 0;
+                    const m = parseFloat(r.toplam_stok || r.miktar) || 0;
                     if (r.tip === 'BASLANGIC' || r.tip === 'SAYIM') map[ad] = m;
                     else if (r.tip === 'GIRIS') map[ad] = (map[ad] || 0) + m;
                     else if (r.tip === 'CIKIS') map[ad] = (map[ad] || 0) - m;
@@ -2136,35 +2136,61 @@
                             minStok: u.min_stok, kategori: u.kategori, takip: u.takip
                         }));
                         const sonHareketler = hareketlerRes.slice(-50).reverse().map(r => ({
-                            tarih: r.tarih, urunAdi: r.urun_adi, miktar: r.miktar,
-                            birim: r.birim, tip: r.tip, not: r.notlar, id: r.id
+                            tarih: r.tarih, 
+                            urunAdi: r.urun_adi, 
+                            miktar: parseFloat(r.toplam_stok || r.miktar) || 0, // v4.14
+                            birim: r.birim, 
+                            tip: r.tip, 
+                            not: r.notlar, 
+                            id: r.id
                         }));
                         return { urunler, sonHareketler };
                     }
 
                     // ── stokEkle ──
                     if (islem === 'stokEkle') {
-                        const { urunler, tip, teslimatKalanlari } = payload;
-                        // Mevcut ürünleri al
+                        const { urunler, tip } = payload;
                         const mevcutlar = await sbFetch('/rest/v1/urunler?select=ad');
                         const mevcutAdlar = mevcutlar.map(u => u.ad.toLowerCase().trim());
                         const tarih = new Date().toISOString();
 
                         const yeniUrunler = urunler.filter(u => !mevcutAdlar.includes(u.ad.toLowerCase().trim()))
                             .map(u => ({ ad: u.ad, birim: u.birim || 'Kg', kategori: u.kategori || 'diger' }));
+                        
                         if (yeniUrunler.length > 0) {
                             await sbFetch('/rest/v1/urunler', { method: 'POST', body: JSON.stringify(yeniUrunler), headers: { Prefer: 'return=minimal' } });
                         }
 
                         const rows = [];
                         urunler.forEach(item => {
-                            // Supabase'deki gerçek adı bul (büyük/küçük harf uyumsuzluğunu düzelt)
                             const gercekAd = mevcutlar.find(u => u.ad.toLowerCase().trim() === item.ad.toLowerCase().trim())?.ad || item.ad;
+                            const islemMiktari = parseFloat(item.toplam_stok || item.miktar) || 0;
+
                             if (tip === 'GIRIS' && item.eskiStok !== undefined && item.eskiStok !== '') {
-                                rows.push({ id: crypto.randomUUID(), tarih, urun_adi: gercekAd, miktar: parseFloat(item.eskiStok), birim: item.birim, tip: 'BASLANGIC', notlar: 'Teslimat ani mevcut stok' });
+                                rows.push({ 
+                                    id: crypto.randomUUID(), 
+                                    tarih, 
+                                    urun_adi: gercekAd, 
+                                    toplam_stok: parseFloat(item.eskiStok), 
+                                    birim: item.birim, 
+                                    tip: 'BASLANGIC', 
+                                    notlar: 'Teslimat ani mevcut stok' 
+                                });
                             }
-                            rows.push({ id: crypto.randomUUID(), tarih, urun_adi: gercekAd, miktar: parseFloat(item.miktar), birim: item.birim, tip: tip === 'BAŞLANGIÇ' ? 'BASLANGIC' : tip, notlar: item.notlar || '' });
+                            
+                            rows.push({ 
+                                id: crypto.randomUUID(), 
+                                tarih, 
+                                urun_adi: gercekAd, 
+                                toplam_stok: islemMiktari, 
+                                birim: item.birim, 
+                                tip: (tip === 'BAŞLANGIÇ' || tip === 'BASLANGIC') ? 'BASLANGIC' : tip, 
+                                fatura_miktar: item.fatura_miktar || 0,
+                                birim_detay: item.birim_detay || '',
+                                notlar: item.notlar || '' 
+                            });
                         });
+                        
                         await sbFetch('/rest/v1/hareketler', { method: 'POST', body: JSON.stringify(rows), headers: { Prefer: 'return=minimal' } });
                         return true;
                     }
@@ -3404,6 +3430,7 @@
             if (btnStokaEkle) {
                 btnStokaEkle.addEventListener('click', async () => {
                     const scannerContainer = document.querySelector('.scanned-items');
+                    const checklist = scannerContainer ? scannerContainer.querySelector('.checklist') : null;
                     if (!checklist) {
                         showToast("Hata: Ürün listesi bulunamadı.", "error");
                         return;
