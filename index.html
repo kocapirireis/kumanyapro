@@ -3266,6 +3266,12 @@
             }
 
             function renderScannedItems(urunler, status = "success", message = "") {
+                // v8.6 - Kesin Çözüm: Veri gelmediyse dur
+                if (!urunler) { 
+                    console.error('Veri gelmedi'); 
+                    return; 
+                }
+
                 const scannerContainer = document.querySelector('.scanned-items');
                 if (!scannerContainer) { showToast("Hata: Liste alanı bulunamadı.", "error"); return; }
 
