@@ -3339,12 +3339,19 @@
                                         class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white mb-2 o-ad uppercase"
                                         value="${urun.ad}">
                                         <input type="hidden" class="o-kategori" value="${urun.kategori || 'diger'}">
-                                            <div class="grid grid-cols-3 gap-2" style="display:grid; grid-template-columns: 1fr 1fr 1fr;">
+                                        <input type="hidden" class="o-birim-gizli" value="${urun.birim}">
+                                            <div class="grid gap-2" style="display:grid; grid-template-columns: 0.6fr 1fr 0.8fr 1.2fr;">
                                                 <div class="flex-col">
-                                                    <label class="text-xs text-muted mb-1 block text-center">Kumanya</label>
+                                                    <label class="text-xs text-muted mb-1 block text-center">Fatura</label>
                                                     <input type="number"
                                                         class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white text-center o-miktar"
-                                                        value="${urun.miktar}" step="0.01">
+                                                        value="${urun.miktar_fatura}" step="0.01">
+                                                </div>
+                                                <div class="flex-col">
+                                                    <label class="text-xs text-muted mb-1 block text-center">Birim (Detay)</label>
+                                                    <input type="text"
+                                                        class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white text-center o-birim-detay"
+                                                        value="${urun.birim_detay}">
                                                 </div>
                                                 <div class="flex-col">
                                                     <label class="text-xs text-accent font-bold mb-1 block text-center">Eski Stok</label>
@@ -3353,33 +3360,10 @@
                                                         placeholder="Sayım" step="0.01">
                                                 </div>
                                                 <div class="flex-col relative">
-                                                    <label class="text-xs text-muted mb-1 block text-center">Birim</label>
+                                                    <label class="text-xs text-primary font-bold mb-1 block text-center">Toplam Stok</label>
                                                     <input type="text"
-                                                        class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white text-center o-birim transition-colors"
-                                                        value="${urun.birim === 'Adet' ? 'Belirsiz' : urun.birim}"
-                                                        onfocus="this.nextElementSibling.classList.remove('hidden')"
-                                                        onblur="setTimeout(() => { if(this.nextElementSibling) this.nextElementSibling.classList.add('hidden') }, 200)">
-                                                        <div class="absolute z-[100] bg-dark border border-white-10 rounded mt-1 w-full hidden shadow-lg text-sm"
-                                                            style="top: 100%; left: 0;">
-                                                            <div class="p-2 hover:bg-white-10 cursor-pointer text-center"
-                                                                onclick="this.parentElement.previousElementSibling.value='kg'; this.parentElement.classList.add('hidden')">
-                                                                kg</div>
-                                                            <div class="p-2 hover:bg-white-10 cursor-pointer text-center"
-                                                                onclick="this.parentElement.previousElementSibling.value='g'; this.parentElement.classList.add('hidden')">
-                                                                g</div>
-                                                            <div class="p-2 hover:bg-white-10 cursor-pointer text-center"
-                                                                onclick="this.parentElement.previousElementSibling.value='L'; this.parentElement.classList.add('hidden')">
-                                                                L</div>
-                                                            <div class="p-2 hover:bg-white-10 cursor-pointer text-center"
-                                                                onclick="this.parentElement.previousElementSibling.value='mL'; this.parentElement.classList.add('hidden')">
-                                                                mL</div>
-                                                            <div class="p-2 hover:bg-white-10 cursor-pointer text-center"
-                                                                onclick="this.parentElement.previousElementSibling.value='Adet'; this.parentElement.classList.add('hidden')">
-                                                                Adet</div>
-                                                            <div class="p-2 hover:bg-white-10 cursor-pointer text-center"
-                                                                onclick="this.parentElement.previousElementSibling.value='Paket'; this.parentElement.classList.add('hidden')">
-                                                                Paket</div>
-                                                        </div>
+                                                        class="bg-dark border border-primary/30 rounded text-sm p-2 w-full text-white text-center o-toplam-stok font-bold"
+                                                        value="${urun.toplam_stok_ai}">
                                                 </div>
                                             </div>
                                             <div style="display:flex;justify-content:center;margin-top:8px;">
@@ -3425,62 +3409,57 @@
                         return;
                     }
 
+                    const selectedItems = [];
+                    let hasUnitError = false;
+
                     checklist.querySelectorAll('li').forEach(li => {
                         const checkbox = li.querySelector('.urun-onay-check');
                         if (checkbox && checkbox.checked) {
-                            const inputBirim = li.querySelector('.o-birim');
-                            const inputMiktar = li.querySelector('.o-miktar');
                             const inputAd = li.querySelector('.o-ad');
+                            const inputToplamStok = li.querySelector('.o-toplam-stok');
+                            const inputEskiStok = li.querySelector('.o-eski-stok');
+                            const kategoriInput = li.querySelector('.o-kategori');
 
-                            if (!inputBirim || !inputMiktar || !inputAd) return;
+                            if (!inputToplamStok || !inputAd) return;
 
-                            let birimVal = (inputBirim.value || '').trim();
-
-                            // Sayı (ondalıklı veya düz) + İzin verilen birim (kg, g, l, ml, adet) şeklinde kontrol sağlayan Regex
-                            const match = birimVal.match(/^(\d+(?:[.,]\d+)?)?\s*(kg|g|l|ml|adet|Paket)$/i);
+                            let stokValStr = (inputToplamStok.value || '').trim();
+                            // Sayı ve Birimi ayır (Örn: "5.6 KG" -> 5.6 ve KG)
+                            // Sayı kısmı virgül veya nokta içerebilir
+                            const match = stokValStr.match(/^([\d.,]+)\s*(.*)$/);
 
                             if (!match) {
                                 hasUnitError = true;
-                                inputBirim.style.border = '1px solid var(--danger)';
-                                inputBirim.classList.remove('shake-animation');
-                                void inputBirim.offsetWidth; // Animasyonu tetiklemek için reflow zorla
-                                inputBirim.classList.add('shake-animation');
-                            } else {
-                                inputBirim.style.border = '1px solid var(--border-color)';
-                                inputBirim.classList.remove('shake-animation');
-
-                                // Standartlaştırma (Sayı + Doğru Boyutlu Harf)
-                                let sayiKismi = match[1] || '';
-                                let harfKismi = (match[2] || '').toLowerCase();
-
-                                if (harfKismi === 'l') harfKismi = 'L';
-                                else if (harfKismi === 'ml') harfKismi = 'mL';
-                                else if (harfKismi === 'adet') harfKismi = 'Adet';
-                                else if (harfKismi === 'paket') harfKismi = 'Paket';
-
-                                // Boşlukları silip standart formata (sayı+Birim veya sadece Birim) dönüştürüyoruz
-                                let temizBirim = sayiKismi + harfKismi;
-
-                                const miktarRaw = inputMiktar.value;
-                                const miktarVal = parseFloat(miktarRaw.replace(',', '.'));
-
-                                const eskiStokInput = li.querySelector('.o-eski-stok');
-                                const eskiStokRaw = eskiStokInput ? eskiStokInput.value : "";
-                                const eskiStokVal = (eskiStokRaw !== "") ? parseFloat(eskiStokRaw.replace(',', '.')) : undefined;
-
-                                const urunAd = (inputAd.value || 'Adsız Ürün').trim();
-                                const kategoriInput = li.querySelector('.o-kategori');
-                                const kategoriVal = kategoriInput ? (kategoriInput.value || 'diger') : 'diger';
-
-                                selectedItems.push({
-                                    ad: urunAd,
-                                    miktar: isNaN(miktarVal) ? 0 : miktarVal,
-                                    birim: temizBirim,
-                                    kategori: kategoriVal,
-                                    notlar: 'Fatura ile eklendi',
-                                    eskiStok: (eskiStokVal !== undefined && !isNaN(eskiStokVal)) ? eskiStokVal : undefined
-                                });
+                                inputToplamStok.style.border = '1px solid var(--danger)';
+                                return;
                             }
+
+                            inputToplamStok.style.border = '1px solid var(--border-color)';
+                            
+                            let miktarStr = match[1].replace(',', '.');
+                            let miktarVal = parseFloat(miktarStr);
+                            let birimVal = match[2].trim() || 'Adet';
+
+                            // Birim Standartlaştırma
+                            let harfKismi = birimVal.toLowerCase();
+                            if (harfKismi === 'l') birimVal = 'L';
+                            else if (harfKismi === 'ml') birimVal = 'mL';
+                            else if (['adet', 'paket', 'kg', 'g'].includes(harfKismi)) {
+                                birimVal = harfKismi === 'g' ? 'g' : (harfKismi === 'kg' ? 'kg' : harfKismi.charAt(0).toUpperCase() + harfKismi.slice(1));
+                            }
+
+                            const urunAd = (inputAd.value || 'Adsız Ürün').trim();
+                            const kategoriVal = kategoriInput ? (kategoriInput.value || 'diger') : 'diger';
+                            const eskiStokRaw = inputEskiStok ? inputEskiStok.value : "";
+                            const eskiStokVal = (eskiStokRaw !== "") ? parseFloat(eskiStokRaw.replace(',', '.')) : undefined;
+
+                            selectedItems.push({
+                                ad: urunAd,
+                                miktar: isNaN(miktarVal) ? 0 : miktarVal,
+                                birim: birimVal,
+                                kategori: kategoriVal,
+                                notlar: 'Fatura ile eklendi (AI Analizi)',
+                                eskiStok: (eskiStokVal !== undefined && !isNaN(eskiStokVal)) ? eskiStokVal : undefined
+                            });
                         }
                     });
 
