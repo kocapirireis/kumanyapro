@@ -3183,7 +3183,7 @@
 
                         let compressedImageBase64 = null;
                         try {
-                            compressedImageBase64 = await compressImage(file, 1200, 0.7);
+                            compressedImageBase64 = await compressImage(file, 800, 0.6);
                         } catch (compressErr) {
                             console.error("Sıkıştırma Hatası:", compressErr);
                             showToast("Görsel sıkıştırılamadı: " + (compressErr.message || "Bilinmeyen hata"), "error");
@@ -3258,7 +3258,11 @@
                         } catch (apiError) {
                             if (apiError.message !== 'iptal') {
                                 console.error("API Hatası:", apiError);
-                                renderScannedItems([], "error", "Yapay Zeka hatası: " + apiError.message);
+                                if (apiError.message.includes("KOTA_DOLDU")) {
+                                    alert("Kota doldu, lütfen 30 saniye bekleyip tekrar deneyin.");
+                                } else {
+                                    renderScannedItems([], "error", "Yapay Zeka hatası: " + apiError.message);
+                                }
                             }
                         } finally {
                             if (loader) loader.classList.remove('active');
