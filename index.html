@@ -3172,7 +3172,7 @@
                         let compressedImageBase64 = null;
                         try {
                             // Faturayı sıkıştırarak gönder (Hız ve kota tasarrufu)
-                            compressedImageBase64 = await compressImage(file, 1500, 0.8);
+                            compressedImageBase64 = await compressImage(file, 1000, 0.5);
                         } catch (compressErr) {
                             console.error("Sıkıştırma Hatası:", compressErr);
                             showToast("Görsel sıkıştırılamadı: " + (compressErr.message || "Bilinmeyen hata"), "error");
