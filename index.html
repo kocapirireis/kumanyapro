@@ -3452,12 +3452,17 @@
                             const eskiStokRaw = inputEskiStok ? inputEskiStok.value : "";
                             const eskiStokVal = (eskiStokRaw !== "") ? parseFloat(eskiStokRaw.replace(',', '.')) : undefined;
 
+                            const inputFaturaMiktar = li.querySelector('.o-miktar');
+                            const inputBirimDetay = li.querySelector('.o-birim-detay');
+
                             selectedItems.push({
                                 ad: urunAd,
                                 miktar: isNaN(miktarVal) ? 0 : miktarVal,
                                 birim: birimVal,
                                 kategori: kategoriVal,
-                                notlar: 'Fatura ile eklendi (AI Analizi)',
+                                fatura_miktar: inputFaturaMiktar ? parseFloat(inputFaturaMiktar.value.replace(',', '.')) : 0,
+                                birim_detay: inputBirimDetay ? inputBirimDetay.value : '',
+                                notlar: 'Fatura Girişi (Manuel Kontrollü)',
                                 eskiStok: (eskiStokVal !== undefined && !isNaN(eskiStokVal)) ? eskiStokVal : undefined
                             });
                         }
