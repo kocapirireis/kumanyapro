@@ -3209,7 +3209,8 @@
 
                         let compressedImageBase64 = null;
                         try {
-                            compressedImageBase64 = await compressImage(file, 800, 0.6);
+                            // v5.0 - Hız Optimizasyonu: 1024px ve 0.7 kalite
+                            compressedImageBase64 = await compressImage(file, 1024, 0.7);
                         } catch (compressErr) {
                             console.error("Sıkıştırma Hatası:", compressErr);
                             showToast("Görsel sıkıştırılamadı: " + (compressErr.message || "Bilinmeyen hata"), "error");
