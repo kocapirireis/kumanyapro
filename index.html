@@ -3475,6 +3475,7 @@
 
                     if (selectedItems.length === 0) { showToast("Seçili ürün bulunamadı!"); return; }
                     try {
+                        console.log("Kaydetme başladı (Stoka Ekle):", selectedItems);
                         btnStokaEkle.disabled = true; btnStokaEkle.textContent = "Kaydediliyor...";
                         await apiCall('stokEkle', { urunler: selectedItems, tip: 'GIRIS', teslimatKalanlari: [] });
                         showToast("Ürünler stoka eklendi!");
