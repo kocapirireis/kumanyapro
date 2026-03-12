@@ -3313,14 +3313,27 @@
                         checklist.innerHTML = `<div class="p-4 text-center text-danger text-sm glass">Pardon, sistem görselden mantıklı bir
     liste oluşturamadı. Lütfen görseli daha net çekmeyi deneyin.</div>`;
                     } else {
-                        // v8.5 - Kesin Çözüm: Ultra Güvenli Dizi Kontrolü
-                        const safeData = Array.isArray(urunler) ? urunler : (urunler && typeof urunler === 'object' ? [urunler] : []);
-                        
-                        if (safeData.length === 0) {
+                        // v8.7 - Zeki Dizi Bulucu (Intelligent Array Finder)
+                        let parsedData = urunler;
+                        try {
+                            // Eğer yanıt objeyse ama liste değilse, içindeki ilk liste özelliğini bulmaya çalış
+                            if (parsedData && !Array.isArray(parsedData) && typeof parsedData === 'object') {
+                                const keys = Object.keys(parsedData);
+                                const listKey = keys.find(k => Array.isArray(parsedData[k]));
+                                parsedData = listKey ? parsedData[listKey] : [parsedData];
+                            } else if (!parsedData) {
+                                parsedData = [];
+                            }
+                        } catch (e) {
+                            console.error("Dizi İşleme Hatası:", e);
+                            parsedData = [];
+                        }
+
+                        if (parsedData.length === 0) {
                             console.warn("No data found in Gemini response");
                         }
                         
-                        let urunlerDonusturulmus = [...safeData];
+                        let urunlerDonusturulmus = [...parsedData];
                         // Uyarı içeren ürünleri listesinin en başına (yukarı) taşıyalım.
                         urunlerDonusturulmus.sort((a, b) => {
                             const aUyariGecerli = (a && a.uyari) ? 1 : 0;
