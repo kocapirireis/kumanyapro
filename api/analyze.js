@@ -152,22 +152,27 @@ module.exports = async (req, res) => {
 
                 const match = urunlerList.find(dbU => {
                   const dbKey = normalize(dbU.ad);
-                  // 1. Ana adla eşleşme
                   if (dbKey && (dbKey === keyRaw || dbKey === keyCleaned)) return true;
-                  // 2. Aliaslarla eşleşme
-                  if (dbU.alias && Array.isArray(dbU.alias)) {
-                    return dbU.alias.some(a => {
-                      const aKey = normalize(a);
-                      return aKey && (aKey === keyRaw || aKey === keyCleaned);
-                    });
+                  
+                  // v14.52 - Gelişmiş Alias Ayrıştırıcı (Array veya String farketmez)
+                  let aliases = [];
+                  if (Array.isArray(dbU.alias)) {
+                    aliases = dbU.alias;
+                  } else if (typeof dbU.alias === 'string') {
+                    // Postgres formatı: "{item1,item2}" veya normal string
+                    aliases = dbU.alias.replace(/[{}]/g, "").split(",").map(s => s.trim());
                   }
-                  return false;
+
+                  return aliases.some(a => {
+                    const aKey = normalize(a);
+                    return aKey && (aKey === keyRaw || aKey === keyCleaned);
+                  });
                 });
                 
                 if (match) {
                   u.gemini_adi = originalGeminiName;
                   u.urun_adi = match.ad;
-                  u.match_status = "matched"; // UI için işaret
+                  u.match_status = "matched";
                 } else {
                   u.gemini_adi = originalGeminiName;
                   u.match_status = "new";
