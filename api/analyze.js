@@ -51,7 +51,7 @@ module.exports = async (req, res) => {
               mimeType: "application/pdf"
             }
           },
-          { text: "Extract invoice items into 'urunler' array with {urun_adi, miktar, birim}. Use only JSON format." }
+          { text: "Extract invoice items into a JSON array named 'urunler'. Each object MUST have: {urun_adi, miktar, birim, birim_detay}. 'birim_detay' should be the exact unit string from the invoice (e.g., '30 Kg.', '6 Adet'). ONLY return JSON." }
         ]
       }],
       generationConfig: {
@@ -70,8 +70,13 @@ module.exports = async (req, res) => {
     console.time("3_JSON_Parse_Islemi");
     // JSON Temizleme
     const jsonMatch = rawText.trim().match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : rawText;
+    let jsonStr = jsonMatch ? jsonMatch[0] : rawText;
     
+    // Eksik virgül veya hatalı kapanışları düzelten basit bir koruma (v13.26)
+    if (!jsonStr.endsWith('}') && !jsonStr.endsWith(']')) {
+        jsonStr += (jsonStr.includes('[') ? ']}' : '}');
+    }
+
     const finalData = JSON.parse(jsonStr);
     console.timeEnd("3_JSON_Parse_Islemi");
 
