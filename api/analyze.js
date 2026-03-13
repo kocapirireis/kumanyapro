@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
 
     const result = await model.generateContent([
       { inlineData: { data: Buffer.from(pdfBytes).toString("base64"), mimeType: "application/pdf" } },
-      "Extract table to JSON."
+      "Extract table to JSON with a root key 'urunler' containing the list of items."
     ]);
 
     const text = result.response.text();
