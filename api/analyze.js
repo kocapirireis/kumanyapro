@@ -51,13 +51,13 @@ module.exports = async (req, res) => {
               mimeType: "application/pdf"
             }
           },
-          { text: "Extract invoice items into a JSON array named 'urunler'. Each object MUST have: {urun_adi, miktar, birim, birim_detay}. 'birim_detay' should be the exact unit string from the invoice (e.g., '30 Kg.', '6 Adet'). ONLY return JSON." }
+          { text: "Extract invoice items into a JSON array named 'urunler'. Each object MUST have: {urun_adi, miktar, birim, birim_detay}. 'birim_detay' should be the exact unit string from the invoice (e.g., '30 Kg.', '6 Adet'). ONLY return JSON. Return minified JSON" }
         ]
       }],
       generationConfig: {
         temperature: 1.0,
         topK: 40,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 4096,
         responseMimeType: "application/json"
       }
     });
