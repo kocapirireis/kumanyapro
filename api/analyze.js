@@ -52,13 +52,13 @@ module.exports = async (req, res) => {
               mimeType: "application/pdf"
             }
           },
-          { text: "Extract invoice items into a JSON array named 'urunler'. Each object MUST have: {urun_adi, miktar, birim, birim_detay}. 'birim_detay' should be the exact unit string from the invoice (e.g., '30 Kg.', '6 Adet'). ONLY return JSON. Return minified JSON" }
+          { text: "Extract invoice items into a JSON array named 'urunler'. Each object MUST have: {urun_adi, miktar, birim, birim_detay}. ONLY return JSON. Return minified JSON." }
         ]
       }],
       generationConfig: {
         temperature: 1.0,
         topK: 40,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 3000, 
         responseMimeType: "application/json"
       }
     });
@@ -70,33 +70,23 @@ module.exports = async (req, res) => {
 
     console.time("3_JSON_Parse_Islemi");
     
-    // JSON Temizleme ve Ayıklama
-    const jsonMatch = rawText.trim().match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-    let jsonStr = jsonMatch ? jsonMatch[0] : rawText;
-
-    // v14.19 - AKILLI JSON TAMIR: Yarım kalan (truncated) JSON'ları kurtar
-    let finalJsonStr = jsonStr;
-    try {
-        if (!finalJsonStr.endsWith('}') && !finalJsonStr.endsWith(']')) {
-            // "urunler": [ varsa ve kapanmamışsa
-            if (finalJsonStr.includes('"urunler":')) {
-                const lastCompleteObject = finalJsonStr.lastIndexOf('}');
-                if (lastCompleteObject !== -1) {
-                    finalJsonStr = finalJsonStr.substring(0, lastCompleteObject + 1) + ']}';
-                } else if (finalJsonStr.includes('[')) {
-                    finalJsonStr += ']}';
-                } else {
-                    finalJsonStr += '}';
-                }
-            } else {
-                finalJsonStr += (finalJsonStr.includes('[') ? ']}' : '}');
-            }
+    // v14.20 - GELİŞMİŞ AKILLI JSON TAMIR: Kesilen listeleri kurtar
+    let cleanJson = rawText.trim();
+    if (!cleanJson.endsWith('}') && !cleanJson.endsWith(']')) {
+        // En son tamamlanmış ürün objesini bulalım
+        let lastBrace = cleanJson.lastIndexOf('}');
+        if (lastBrace !== -1) {
+            cleanJson = cleanJson.substring(0, lastBrace + 1);
+            // Eğer bir liste içindeyse kapat
+            if (cleanJson.includes('[')) cleanJson += ']}';
+            else cleanJson += '}';
+        } else {
+            // Hiç süslü parantez yoksa, kaba taslak kapatmayı dene
+            cleanJson += ']}';
         }
-    } catch (e) {
-        console.warn("JSON Tamir Denemesi Başarısız:", e);
     }
 
-    const finalData = JSON.parse(finalJsonStr);
+    const finalData = JSON.parse(cleanJson);
     
     // v14.4 - UnitHelper Entegrasyonu: Tüm satırları merkezi fonksiyondan geçir
     if (finalData.urunler && Array.isArray(finalData.urunler)) {
