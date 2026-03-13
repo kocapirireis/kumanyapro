@@ -120,13 +120,19 @@ module.exports = async (req, res) => {
         })
         .filter(item => item !== null);
       
-      // v14.33 - AKILLI İSİM HAFIZASI (ALIAS) ENTEGRASYONU
+      // v14.55 - %100 GARANTİLİ HAFIZA MOTORU
       try {
         const supabaseUrl = process.env.SUPABASE_URL;
         const supabaseKey = process.env.SUPABASE_KEY;
         
+        // 1. ADIM: Önce her ürüne bir "Kimlik Kartı" çıkartalım (Database'den bağımsız)
+        finalData.urunler = finalData.urunler.map(u => {
+          u.gemini_adi = (u.raw_adi || u.urun_adi || "").toUpperCase().trim();
+          u.match_status = "new"; // Varsayılan: Yeni
+          return u;
+        });
+
         if (supabaseUrl && supabaseKey) {
-          // v14.49 - Limit artırıldı ve daha agresif arama
           const aliasRes = await fetch(`${supabaseUrl}/rest/v1/urunler?select=ad,alias&limit=5000`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
@@ -144,24 +150,16 @@ module.exports = async (req, res) => {
               };
 
               finalData.urunler = finalData.urunler.map(u => {
-                const originalGeminiName = (u.raw_adi || u.urun_adi || "").toUpperCase().trim();
-                const cleanedGeminiName = (u.urun_adi || "").toUpperCase().trim();
-                
-                const keyRaw = normalize(originalGeminiName);
-                const keyCleaned = normalize(cleanedGeminiName);
+                const keyRaw = normalize(u.gemini_adi);
+                const keyCleaned = normalize(u.urun_adi);
 
                 const match = urunlerList.find(dbU => {
                   const dbKey = normalize(dbU.ad);
                   if (dbKey && (dbKey === keyRaw || dbKey === keyCleaned)) return true;
                   
-                  // v14.52 - Gelişmiş Alias Ayrıştırıcı (Array veya String farketmez)
                   let aliases = [];
-                  if (Array.isArray(dbU.alias)) {
-                    aliases = dbU.alias;
-                  } else if (typeof dbU.alias === 'string') {
-                    // Postgres formatı: "{item1,item2}" veya normal string
-                    aliases = dbU.alias.replace(/[{}]/g, "").split(",").map(s => s.trim());
-                  }
+                  if (Array.isArray(dbU.alias)) aliases = dbU.alias;
+                  else if (typeof dbU.alias === 'string') aliases = dbU.alias.replace(/[{}]/g, "").split(",").map(s => s.trim());
 
                   return aliases.some(a => {
                     const aKey = normalize(a);
@@ -170,12 +168,8 @@ module.exports = async (req, res) => {
                 });
                 
                 if (match) {
-                  u.gemini_adi = originalGeminiName;
                   u.urun_adi = match.ad;
                   u.match_status = "matched";
-                } else {
-                  u.gemini_adi = originalGeminiName;
-                  u.match_status = "new";
                 }
                 return u;
               });
@@ -183,7 +177,7 @@ module.exports = async (req, res) => {
           }
         }
       } catch (aliasErr) {
-        console.warn("Backend Alias eşleştirme hatası:", aliasErr.message);
+        console.warn("Backend Hafıza Motoru Hatası (Atlanıyor):", aliasErr.message);
       }
     }
 
