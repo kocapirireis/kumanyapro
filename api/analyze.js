@@ -7,8 +7,10 @@ module.exports = async (req, res) => {
   const { imageBase64 } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 is required' });
 
-  console.log("--- KESIN CALISAN MODEL (Flash Latest) BAŞLADI ---");
+  console.log("--- YENI NESIL ANALIZ (3.1 Flash Lite) BAŞLADI ---");
   console.time("Toplam_Sure");
+
+  let rawText = "";
 
   try {
     console.time("1_PDF_Hazirlama");
@@ -23,6 +25,7 @@ module.exports = async (req, res) => {
       image = await pdfDoc.embedPng(imageBytes);
     }
 
+    // PDF ölçeğini koruyarak hafifletme (v13.24)
     const scale = 0.5;
     const dims = image.scale(scale);
     const page = pdfDoc.addPage([dims.width, dims.height]);
@@ -30,12 +33,12 @@ module.exports = async (req, res) => {
     const pdfBytes = await pdfDoc.save();
     console.timeEnd("1_PDF_Hazirlama");
 
-    console.time("2_Gemini_API_Yanit_Suresi");
+    console.time("2_Gemini_3.1_Lite_Yanit_Suresi");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     
-    // v13.18 - Kesin çalışan ve az önce test ettiğimiz isme geri dönüldü
+    // Şampiyon model: gemini-3.1-flash-lite-preview (v13.24)
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-flash-latest" 
+      model: "gemini-3.1-flash-lite-preview" 
     });
 
     const result = await model.generateContent({
@@ -48,34 +51,44 @@ module.exports = async (req, res) => {
               mimeType: "application/pdf"
             }
           },
-          { text: "Extract invoice items to JSON array 'urunler' with {urun_adi, miktar, birim}. ONLY JSON." }
+          { text: "Extract invoice items into 'urunler' array with {urun_adi, miktar, birim}. Use only JSON format." }
         ]
       }],
       generationConfig: {
         temperature: 1.0,
         topK: 40,
-        maxOutputTokens: 500,
+        maxOutputTokens: 1000,
         responseMimeType: "application/json"
       }
     });
 
     const response = await result.response;
-    let text = response.text();
-    console.timeEnd("2_Gemini_API_Yanit_Suresi");
+    rawText = response.text();
+    console.log("Modelin Ham Cevabı:", rawText);
+    console.timeEnd("2_Gemini_3.1_Lite_Yanit_Suresi");
 
-    const jsonMatch = text.trim().match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : text;
+    console.time("3_JSON_Parse_Islemi");
+    // JSON Temizleme
+    const jsonMatch = rawText.trim().match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    const jsonStr = jsonMatch ? jsonMatch[0] : rawText;
+    
     const finalData = JSON.parse(jsonStr);
+    console.timeEnd("3_JSON_Parse_Islemi");
 
     console.timeEnd("Toplam_Sure");
     res.status(200).json(finalData);
+
   } catch (err) {
-    if (console.timeEnd) try { console.timeEnd("Toplam_Sure"); } catch(e) {}
-    console.error("Vercel Backend Hatası:", err);
+    if (console.timeEnd) {
+        try { console.timeEnd("1_PDF_Hazirlama"); } catch(e) {}
+        try { console.timeEnd("2_Gemini_3.1_Lite_Yanit_Suresi"); } catch(e) {}
+        try { console.timeEnd("Toplam_Sure"); } catch(e) {}
+    }
+    console.error("Vercel Backend Hatası Detay:", err);
     res.status(500).json({ 
-      error: "Sistem Hatası", 
+      error: "Analiz Verisi Okunamadı", 
       details: err.message,
-      note: "Model isminde veya kotada bir sorun olabilir."
+      raw: rawText ? rawText.substring(0, 100) : "No response"
     });
   }
 };
