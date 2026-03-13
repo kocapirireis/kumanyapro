@@ -7,7 +7,7 @@ module.exports = async (req, res) => {
   const { imageBase64 } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 is required' });
 
-  console.log("--- MODEL HATASI DUZELTME & HIZ AYARLARI BAŞLADI ---");
+  console.log("--- MODEL ISMI GUNCELLEME (1.5 Flash) BAŞLADI ---");
   console.time("Toplam_Sure");
 
   try {
@@ -33,9 +33,9 @@ module.exports = async (req, res) => {
     console.time("2_Gemini_API_Yanit_Suresi");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     
-    // Hata Giderildi: motor -> model olarak düzeltildi (v13.16)
+    // v13.17 - Model ismi sadeleştirildi (Hata alırsak yedek: gemini-flash-latest)
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash-latest" 
+      model: "gemini-1.5-flash" 
     });
 
     const result = await model.generateContent({
@@ -48,13 +48,13 @@ module.exports = async (req, res) => {
               mimeType: "application/pdf"
             }
           },
-          { text: "Extract invoice: {urun_adi, miktar, birim}" }
+          { text: "Extract invoice items to JSON array 'urunler' with {urun_adi, miktar, birim}. ONLY JSON." }
         ]
       }],
       generationConfig: {
-        temperature: 1.0,           // Hız ve lag çözümü için
-        topK: 40,                  // Stabilite için
-        maxOutputTokens: 500,      // Kısa ve hızlı yanıt için
+        temperature: 1.0,
+        topK: 40,
+        maxOutputTokens: 500,
         responseMimeType: "application/json"
       }
     });
@@ -72,6 +72,12 @@ module.exports = async (req, res) => {
   } catch (err) {
     if (console.timeEnd) try { console.timeEnd("Toplam_Sure"); } catch(e) {}
     console.error("Vercel Backend Hatası:", err);
-    res.status(500).json({ error: "Model veya Bağlantı Hatası", details: err.message });
+    
+    // YEDEK MEKANIZMA: Eğer 1.5-flash hata verirse otomatik olarak çalışan diğer isme yönlendirilecek mesajı veriyoruz
+    res.status(500).json({ 
+      error: "Model Erişimi Başarısız", 
+      details: err.message,
+      suggestion: "gemini-1.5-flash ismi çalışmadıysa bir sonraki denemede gemini-flash-latest ismine dönebiliriz."
+    });
   }
 };
