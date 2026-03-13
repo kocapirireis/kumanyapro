@@ -69,16 +69,34 @@ module.exports = async (req, res) => {
     console.timeEnd("2_Gemini_3.1_Lite_Yanit_Suresi");
 
     console.time("3_JSON_Parse_Islemi");
-    // JSON Temizleme
+    
+    // JSON Temizleme ve Ayıklama
     const jsonMatch = rawText.trim().match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
     let jsonStr = jsonMatch ? jsonMatch[0] : rawText;
-    
-    // Eksik virgül veya hatalı kapanışları düzelten basit bir koruma (v13.26)
-    if (!jsonStr.endsWith('}') && !jsonStr.endsWith(']')) {
-        jsonStr += (jsonStr.includes('[') ? ']}' : '}');
+
+    // v14.19 - AKILLI JSON TAMIR: Yarım kalan (truncated) JSON'ları kurtar
+    let finalJsonStr = jsonStr;
+    try {
+        if (!finalJsonStr.endsWith('}') && !finalJsonStr.endsWith(']')) {
+            // "urunler": [ varsa ve kapanmamışsa
+            if (finalJsonStr.includes('"urunler":')) {
+                const lastCompleteObject = finalJsonStr.lastIndexOf('}');
+                if (lastCompleteObject !== -1) {
+                    finalJsonStr = finalJsonStr.substring(0, lastCompleteObject + 1) + ']}';
+                } else if (finalJsonStr.includes('[')) {
+                    finalJsonStr += ']}';
+                } else {
+                    finalJsonStr += '}';
+                }
+            } else {
+                finalJsonStr += (finalJsonStr.includes('[') ? ']}' : '}');
+            }
+        }
+    } catch (e) {
+        console.warn("JSON Tamir Denemesi Başarısız:", e);
     }
 
-    const finalData = JSON.parse(jsonStr);
+    const finalData = JSON.parse(finalJsonStr);
     
     // v14.4 - UnitHelper Entegrasyonu: Tüm satırları merkezi fonksiyondan geçir
     if (finalData.urunler && Array.isArray(finalData.urunler)) {
