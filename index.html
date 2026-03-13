@@ -3498,7 +3498,8 @@
                                 kategori: kategoriVal,
                                 fatura_miktar: inputFaturaMiktar ? parseFloat(inputFaturaMiktar.value.replace(',', '.')) : 0,
                                 birim_detay: inputBirimDetay ? inputBirimDetay.value : '',
-                                notlar: 'Fatura Girişi (Manuel Kontrollü)',
+                                notlar: 'Fatura Girişi',
+                                eslestirilen_alias: aliasAd,
                                 eskiStok: (eskiStokVal !== undefined && !isNaN(eskiStokVal)) ? eskiStokVal : undefined
                             });
                         }
