@@ -126,7 +126,6 @@ module.exports = async (req, res) => {
         const supabaseKey = process.env.SUPABASE_KEY;
         
         if (supabaseUrl && supabaseKey) {
-          // Tüm ürünleri çek (Alias sütununu da al)
           const aliasRes = await fetch(`${supabaseUrl}/rest/v1/urunler?select=ad,alias`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
@@ -134,8 +133,14 @@ module.exports = async (req, res) => {
           if (aliasRes.ok) {
             const urunlerList = await aliasRes.json();
             if (Array.isArray(urunlerList) && urunlerList.length > 0) {
-              // Karşılaştırma için süper temiz isim (Boşluksuz ve noktalama işaretsiz)
-              const normalize = (str) => (str || "").toUpperCase().replace(/[^A-Z0-9ÇĞİÖŞÜ]/g, "");
+              const normalize = (str) => {
+                if (!str) return "";
+                return str.toString().toUpperCase()
+                  .replace(/[İ]/g, 'I').replace(/[Ş]/g, 'S')
+                  .replace(/[Ç]/g, 'C').replace(/[Ğ]/g, 'G')
+                  .replace(/[Ü]/g, 'U').replace(/[Ö]/g, 'O')
+                  .replace(/[^A-Z0-9]/g, ""); 
+              };
 
               finalData.urunler = finalData.urunler.map(u => {
                 const originalGeminiName = (u.raw_adi || u.urun_adi || "").toUpperCase().trim();
@@ -144,13 +149,9 @@ module.exports = async (req, res) => {
                 const keyRaw = normalize(originalGeminiName);
                 const keyCleaned = normalize(cleanedGeminiName);
 
-                console.log(`[Hafıza] Aranan Anahtarlar: "${keyRaw}" (Ham), "${keyCleaned}" (Temiz)`);
-                
                 const match = urunlerList.find(dbU => {
-                  // 1. Ana isimle direk eşleşme (Normalizasyon ile)
-                  if (normalize(dbU.ad) === keyRaw || normalize(dbU.ad) === keyCleaned) return true;
-                  
-                  // 2. Alias listesinde arama
+                  const dbKey = normalize(dbU.ad);
+                  if (dbKey === keyRaw || dbKey === keyCleaned) return true;
                   if (dbU.alias && Array.isArray(dbU.alias)) {
                     return dbU.alias.some(a => {
                       const aKey = normalize(a);
@@ -161,7 +162,6 @@ module.exports = async (req, res) => {
                 });
                 
                 if (match) {
-                  console.log(`[Hafıza] EŞLEŞME TAMAM: -> ${match.ad}`);
                   u.gemini_adi = originalGeminiName;
                   u.urun_adi = match.ad;
                 } else {
