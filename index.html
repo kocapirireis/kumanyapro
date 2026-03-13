@@ -2130,14 +2130,23 @@
                         return { urunler, sonHareketler };
                     }
 
-                    // ── stokEkle (v6.0 - Backend'e Taşıma) ──
+                    // ── stokEkle (v14.37 - HTTP Fetch'e Dönüştürüldü) ──
                     if (islem === 'stokEkle') {
-                        return new Promise((resolve, reject) => {
-                            google.script.run
-                                .withSuccessHandler(res => resolve(res))
-                                .withFailureHandler(err => reject(err))
-                                .stoklariKaydet(payload);
+                        const token = localStorage.getItem('userToken');
+                        const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ 
+                                islem: 'stokEkle', 
+                                token: token, 
+                                urunler: payload.urunler, 
+                                tip: payload.tip 
+                            })
                         });
+                        if (!response.ok) throw new Error('Backend bağlantı hatası');
+                        const result = await response.json();
+                        if (result.basarili) return result.veri;
+                        throw new Error(result.hata || 'Kayıt başarısız');
                     }
 
                     // ── hareketGeriAl ──
