@@ -112,7 +112,12 @@ module.exports = async (req, res) => {
     // UnitHelper Entegrasyonu
     if (finalData.urunler && Array.isArray(finalData.urunler)) {
       finalData.urunler = finalData.urunler
-        .map(item => unitHelper.parseProduct(item))
+        .map(item => {
+          const rawName = (item.urun_adi || "").trim(); // Temizlenmeden önceki hali
+          const processed = unitHelper.parseProduct(item);
+          if (processed) processed.raw_adi = rawName; // Ham ismi objeye yapıştır
+          return processed;
+        })
         .filter(item => item !== null);
       
       // v14.33 - AKILLI İSİM HAFIZASI (ALIAS) ENTEGRASYONU
@@ -129,19 +134,28 @@ module.exports = async (req, res) => {
             const urunlerList = await aliasRes.json();
             if (Array.isArray(urunlerList) && urunlerList.length > 0) {
               finalData.urunler = finalData.urunler.map(u => {
-                const hamAd = (u.urun_adi || "").toUpperCase().trim();
-                // Alias listesinde bu ismi ara
-                const match = urunlerList.find(dbU => 
-                  dbU.alias && Array.isArray(dbU.alias) && 
-                  dbU.alias.some(a => a.toUpperCase().trim() === hamAd)
-                );
+                const cleanedName = (u.urun_adi || "").toUpperCase().trim();
+                const originalGeminiName = (u.raw_adi || "").toUpperCase().trim();
+                
+                console.log(`[Hafıza] Sorgulanan: "${originalGeminiName}" (Ham), "${cleanedName}" (Temiz)`);
+                
+                // Alias listesinde hem ham halini hem temiz halini ara
+                const match = urunlerList.find(dbU => {
+                  const hasMatch = dbU.alias && Array.isArray(dbU.alias) && 
+                                   dbU.alias.some(a => {
+                                     const aliasName = a.toUpperCase().trim();
+                                     return aliasName === originalGeminiName || aliasName === cleanedName;
+                                   });
+                  if (hasMatch) console.log(`[Hafıza] Eşleşen Alias Listesi:`, dbU.alias);
+                  return hasMatch;
+                });
                 
                 if (match) {
-                  console.log(`[Alias Match] ${hamAd} -> ${match.ad}`);
-                  u.gemini_adi = hamAd; // Ham ismi referans için sakla
+                  console.log(`[Hafıza] EŞLEŞME TAMAM: -> ${match.ad}`);
+                  u.gemini_adi = originalGeminiName; // En ham halini referans için sakla
                   u.urun_adi = match.ad;
                 } else {
-                  u.gemini_adi = hamAd;
+                  u.gemini_adi = originalGeminiName;
                 }
                 return u;
               });
