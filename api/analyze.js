@@ -106,6 +106,9 @@ module.exports = async (req, res) => {
         }
     }
     
+    // v14.29 - DEBUG: UnitHelper'a girmeden önceki ham veriyi logla
+    console.log("UNITHELPER ÖNCESİ HAM VERİ:", JSON.stringify(finalData, null, 2));
+
     // UnitHelper Entegrasyonu
     if (finalData.urunler && Array.isArray(finalData.urunler)) {
       finalData.urunler = finalData.urunler
