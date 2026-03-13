@@ -8,7 +8,7 @@ module.exports = async (req, res) => {
   const { imageBase64 } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 is required' });
 
-  console.log("--- ANALIZ v14.23 (3.1 Lite - Kararlı Sürüm) BAŞLADI ---");
+  console.log("--- ANALIZ v14.24 (Mega JSON Fix) BAŞLADI ---");
   console.time("Toplam_Sure");
 
   let rawText = "";
@@ -33,13 +33,9 @@ module.exports = async (req, res) => {
     const pdfBytes = await pdfDoc.save();
     console.timeEnd("1_PDF_Hazirlama");
 
-    console.time("2_Gemini_3.1_Lite_Yanit_Suresi");
+    console.time("2_Gemini_Lite_Yanit_Suresi");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    
-    // v14.23 - Orijinal Model Geri Getirildi
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-3.1-flash-lite-preview" 
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
 
     const result = await model.generateContent({
       contents: [{
@@ -51,42 +47,63 @@ module.exports = async (req, res) => {
               mimeType: "application/pdf"
             }
           },
-          { text: "Extract invoice items into a JSON array named 'urunler'. Each object MUST have: {urun_adi, miktar, birim, birim_detay}. ONLY return JSON. Return minified JSON." }
+          { text: "Extract invoice items into a JSON array named 'urunler'. Each object: {urun_adi, miktar, birim, birim_detay}. ONLY return minified JSON string." }
         ]
       }],
       generationConfig: {
-        temperature: 1.0,
-        topK: 40,
-        maxOutputTokens: 3500, // Uzun faturalar için genişletilmiş kapasite
+        temperature: 0.1,
+        topK: 1,
+        maxOutputTokens: 4000, // 41 satır için güvenli alan
         responseMimeType: "application/json"
       }
     });
 
     const response = await result.response;
-    rawText = response.text();
-    console.timeEnd("2_Gemini_3.1_Lite_Yanit_Suresi");
+    rawText = response.text().trim();
+    console.timeEnd("2_Gemini_Lite_Yanit_Suresi");
 
     console.time("3_JSON_Parse_Islemi");
     
-    // v14.23 - Gelişmiş JSON Tamir (Geriye Dönük Ürün Kurtarma)
-    let cleanJson = rawText.trim();
-    let finalData = null;
+    // v14.24 - GELİŞMİŞ JSON AYIKLAMA VE TAMİR
+    let jsonToParse = rawText;
+    
+    // 1. Regex ile JSON bloğunu bul (Markdown block'ları veya ön ekleri temizler)
+    const jsonMatch = rawText.match(/\{[\s\S]*/);
+    if (jsonMatch) jsonToParse = jsonMatch[0];
 
+    let finalData = null;
     try {
-        finalData = JSON.parse(cleanJson);
+        finalData = JSON.parse(jsonToParse);
     } catch (parseErr) {
-        console.warn("JSON Kesik Geldi, Tamir Ediliyor...");
-        // Sondan başa doğru en son tam kapanmış objeyi (}) arar
-        let lastStop = cleanJson.lastIndexOf('}');
-        if (lastStop !== -1) {
-            let fixed = cleanJson.substring(0, lastStop + 1);
-            if (fixed.includes('"urunler":')) {
-                fixed = fixed.replace(/,\s*$/, ""); // Varsa sondaki virgülü temizle
-                fixed += ']}';
+        console.warn("JSON Tamir Modu Aktif...");
+        
+        // 2. Kırısal Tamir (Truncation kurtarma)
+        let lastClosingBrace = jsonToParse.lastIndexOf('}');
+        if (lastClosingBrace !== -1) {
+            let fixedStr = jsonToParse.substring(0, lastClosingBrace + 1);
+            
+            // Eğer urunler dizisi içindeyse kapatmayı tamamla
+            if (fixedStr.includes('"urunler":')) {
+                // Sondaki olası virgülü temizle (Örn: ...}, ]})
+                fixedStr = fixedStr.replace(/,\s*$/, "");
+                if (fixedStr.split('{').length > fixedStr.split('}').length) {
+                   // Hala açık parantez varsa (bir objenin ortasında kesildiyse), bir önceki objeye geri git
+                   let secondLastBrace = fixedStr.substring(0, fixedStr.length - 1).lastIndexOf('}');
+                   if (secondLastBrace !== -1) {
+                       fixedStr = fixedStr.substring(0, secondLastBrace + 1);
+                   }
+                }
+                fixedStr = fixedStr.replace(/,\s*$/, "") + ']}';
             } else {
-                fixed += '}';
+                fixedStr += '}';
             }
-            finalData = JSON.parse(fixed);
+            
+            try {
+                finalData = JSON.parse(fixedStr);
+                console.log("JSON başarıyla kurtarıldı. Ürün sayısı:", finalData.urunler?.length);
+            } catch (e2) {
+                throw new Error("Kritik JSON Hatası: Veri tamir edilemeyecek kadar bozuk.");
+            }
         } else {
             throw parseErr;
         }
@@ -108,7 +125,7 @@ module.exports = async (req, res) => {
     res.status(500).json({ 
       error: "Analiz Verisi Okunamadı", 
       details: err.message,
-      raw: rawText ? rawText.substring(Math.max(0, rawText.length - 150)) : "No response"
+      raw: rawText ? rawText.substring(Math.max(0, rawText.length - 200)) : "No response"
     });
   }
 };
