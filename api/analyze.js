@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
           mimeType: "application/pdf"
         }
       },
-      "Extract table to JSON with a root key 'urunler' containing the list of items."
+      "Extract table to JSON with a root key 'urunler' containing a list of objects. Each object MUST have these exact keys: 'urun_adi' (string), 'miktar' (number), 'birim' (string), 'birim_detay' (string), and 'toplam_stok_ai' (the same number as miktar)."
     ]);
 
     const response = await result.response;
