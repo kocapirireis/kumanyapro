@@ -126,19 +126,20 @@ module.exports = async (req, res) => {
         const supabaseKey = process.env.SUPABASE_KEY;
         
         if (supabaseUrl && supabaseKey) {
-          const aliasRes = await fetch(`${supabaseUrl}/rest/v1/urunler?select=ad,alias`, {
+          // v14.49 - Limit artırıldı ve daha agresif arama
+          const aliasRes = await fetch(`${supabaseUrl}/rest/v1/urunler?select=ad,alias&limit=5000`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
           
           if (aliasRes.ok) {
             const urunlerList = await aliasRes.json();
-            if (Array.isArray(urunlerList) && urunlerList.length > 0) {
+            if (Array.isArray(urunlerList)) {
               const normalize = (str) => {
                 if (!str) return "";
                 return str.toString().toUpperCase()
-                  .replace(/[İ]/g, 'I').replace(/[Ş]/g, 'S')
-                  .replace(/[Ç]/g, 'C').replace(/[Ğ]/g, 'G')
-                  .replace(/[Ü]/g, 'U').replace(/[Ö]/g, 'O')
+                  .replace(/[İIı]/g, 'I').replace(/[Şş]/g, 'S')
+                  .replace(/[Çç]/g, 'C').replace(/[Ğğ]/g, 'G')
+                  .replace(/[Üü]/g, 'U').replace(/[Öö]/g, 'O')
                   .replace(/[^A-Z0-9]/g, ""); 
               };
 
@@ -151,11 +152,13 @@ module.exports = async (req, res) => {
 
                 const match = urunlerList.find(dbU => {
                   const dbKey = normalize(dbU.ad);
-                  if (dbKey === keyRaw || dbKey === keyCleaned) return true;
+                  // 1. Ana adla eşleşme
+                  if (dbKey && (dbKey === keyRaw || dbKey === keyCleaned)) return true;
+                  // 2. Aliaslarla eşleşme
                   if (dbU.alias && Array.isArray(dbU.alias)) {
                     return dbU.alias.some(a => {
                       const aKey = normalize(a);
-                      return aKey === keyRaw || aKey === keyCleaned;
+                      return aKey && (aKey === keyRaw || aKey === keyCleaned);
                     });
                   }
                   return false;
@@ -164,8 +167,10 @@ module.exports = async (req, res) => {
                 if (match) {
                   u.gemini_adi = originalGeminiName;
                   u.urun_adi = match.ad;
+                  u.match_status = "matched"; // UI için işaret
                 } else {
                   u.gemini_adi = originalGeminiName;
+                  u.match_status = "new";
                 }
                 return u;
               });
@@ -173,7 +178,7 @@ module.exports = async (req, res) => {
           }
         }
       } catch (aliasErr) {
-        console.warn("Backend Alias eşleştirme hatası (atlanıyor):", aliasErr.message);
+        console.warn("Backend Alias eşleştirme hatası:", aliasErr.message);
       }
     }
 
