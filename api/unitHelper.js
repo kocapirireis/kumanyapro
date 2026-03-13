@@ -142,6 +142,9 @@ function parseProduct(product) {
     }
   }
 
+  // 5. İSİM TEMİZLEME: Ürün ismindeki 500GR, TENEKE gibi bilgileri sil.
+  let cleanedName = cleanProductName(product.urun_adi);
+
   return {
     ...product,
     urun_adi: cleanedName,
