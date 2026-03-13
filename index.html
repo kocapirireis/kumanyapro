@@ -2121,10 +2121,10 @@
                         const sonHareketler = hareketlerRes.slice(-50).reverse().map(r => ({
                             tarih: r.tarih, 
                             urunAdi: r.urun_adi, 
-                            miktar: parseFloat(r.toplam_stok || r.miktar) || 0, // v4.14
+                            miktar: parseFloat(r.toplam_stok || r.miktar || 0), // v4.14 uyumlu
                             birim: r.birim, 
                             tip: r.tip, 
-                            not: r.notlar, 
+                            not: r.notlar || r.not || '', // v14.39 - Çift taraflı uyum
                             id: r.id
                         }));
                         return { urunler, sonHareketler };
@@ -3527,6 +3527,9 @@
                         if (response === true) {
                             showToast("Ürünler stoka başarıyla eklendi!");
                             document.querySelector('.scanned-items').classList.add('hidden');
+                            // v14.39 - Otomatik UI Güncelleme
+                            await updateUI();
+                            
                             document.getElementById('view-invoice').classList.remove('active');
                             document.getElementById('view-home').classList.add('active');
                             navItems.forEach(n => n.classList.remove('active'));
