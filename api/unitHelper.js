@@ -1,9 +1,9 @@
 /**
  * unitHelper.js
- * Ürün isminden birim ayıklama modülü. (v14.35 - Cerrahi Temizlik Geri Geldi)
+ * Ürün isminden birim ayıklama modülü. (v14.36 - 'LÜ/'Lİ Kesin Çözüm)
  */
 
-const STANDARD_UNITS = ["KG", "GR", "L", "ML", "ADET", "12LI", "30LU", "LU", "PAKET", "KOLI", "G", "LT", "LU", "LI"];
+const STANDARD_UNITS = ["KG", "GR", "L", "ML", "ADET", "PAKET", "KOLI", "G", "LT"];
 
 /**
  * İki metin arasındaki benzerlik oranını hesaplar (Dice's Coefficient).
@@ -27,35 +27,49 @@ function getSimilarity(s1, s2) {
  */
 function extractUnitFromName(name) {
   if (!name) return null;
-  const namePattern = /(\d+[.,]?\d*)\s*(KG|GR|G|ML|LT|LU|LI|L|ADET)/i; 
-  const match = name.match(namePattern);
+  
+  // v14.36: Önce uzun ekleri kontrol et (100'LÜ, 12'Lİ gibi)
+  // Bu ekler 'L' (Litre) ile karışmamalı
+  const longUnitPattern = /(\d+[.,]?\d*)\s*['\s-]*(LÜ|Lİ|LU|LI|ADET|PAKET|KOLİ|KOLI)/i;
+  const longMatch = name.match(longUnitPattern);
+  if (longMatch) {
+    return `${longMatch[1]} ADET`; // 100'LÜ -> 100 ADET
+  }
+
+  // Standart birimler (KG, GR, L, ML)
+  // L harfini yakalarken arkasından harf gelmediğinden emin ol (\b veya boşluk)
+  const stdPattern = /(\d+[.,]?\d*)\s*(KG|GR|G|ML|LT|L)(?![A-ZÇĞİÖŞÜ])/i; 
+  const match = name.match(stdPattern);
   
   if (match) {
     let val = match[1].replace(',', '.');
     let unit = match[2].toUpperCase();
     if (unit === "G") unit = "GR";
     if (unit === "LT") unit = "L";
-    if (unit === "LI") unit = "LU";
     return `${val} ${unit}`;
   }
   return null;
 }
 
 /**
- * ÜRÜN İSMİNİ TEMİZLE (v14.35)
- * Sadece Sayı + Birim içeren kısımları siler (Örn: 500GR, 5L, 2.5 KG).
- * Kelime sınırlarına (\b) dikkat ederek harf çalmayı önler.
+ * ÜRÜN İSMİNİ TEMİZLE (v14.36)
+ * 100'LÜ, 12'Lİ, 500GR, 5L gibi ifadelerin tamamını siler.
+ * Kesme işareti ve sonrasındaki ekleri (Ü, İ, LU, LI) tam yakalar.
  */
 function cleanProductName(name) {
   if (!name) return "";
   let cleaned = name.toUpperCase();
 
-  // 1. Sayı + Birim kalıplarını temizle (Örn: 500GR, 5 L, 1.5LT)
-  // Parantez içindeki birimleri de kapsar: (500GR) -> ""
-  const unitRegex = /[\(\[]?(\d+[.,]?\d*)\s*(KG|GR|G|ML|LT|L|ADET|PAKET|KOLİ|KOLI)[\)\]]?/gi;
+  // 1. 'LÜ, 'Lİ, -LÜ, LU gibi özel ekli adetleri temizle (Örn: 100'LÜ, 12'Lİ)
+  const suffixRegex = /[\(\[]?(\d+[.,]?\d*)\s*['\s-]*(LÜ|Lİ|LU|LI|ADET)[\)\]]?/gi;
+  cleaned = cleaned.replace(suffixRegex, " ");
+
+  // 2. Standart birimleri temizle (KG, GR, L, ML)
+  // Arkasından harf gelmeyen L'leri yakalar (Litre olanlar)
+  const unitRegex = /[\(\[]?(\d+[.,]?\d*)\s*(KG|GR|G|ML|LT|L)(?![A-ZÇĞİÖŞÜ])[\)\]]?/gi;
   cleaned = cleaned.replace(unitRegex, " ");
 
-  // 2. Temizlik sonrası bozulan boşlukları düzelt
+  // 3. Temizlik sonrası bozulan boşlukları düzelt
   return cleaned.replace(/\s+/g, ' ').trim();
 }
 
@@ -74,7 +88,7 @@ function normalizeUnit(rawUnit) {
     let u = match[2].toUpperCase();
     if (u === "G") u = "GR";
     if (u === "LT" || u === "L") u = "L";
-    if (u === "LI") u = "LU";
+    if (u === "LI" || u === "LU") return "ADET"; // 100'lü gibi birimler adet sayılmalı
     return `${val} ${u}`;
   }
   
@@ -84,7 +98,7 @@ function normalizeUnit(rawUnit) {
 }
 
 /**
- * Ürün objesini işle (v14.35 - CERRAHİ TEMİZLİK)
+ * Ürün objesini işle (v14.36 - EK VE HARF ARTIĞI KORUMASI)
  */
 function parseProduct(product) {
   if (!product) return null;
@@ -92,20 +106,19 @@ function parseProduct(product) {
   let miktar = parseFloat(product.miktar) || 0;
   let rawBirim = (product.birim || product.birim_detay || "ADET").toString();
   
-  // 1. İsimden Birim Ayıkla (Sadece kopyalamak için)
+  // 1. İsimden Birim Ayıkla
   let nameUnit = extractUnitFromName(product.urun_adi);
   
   // 2. Birimi Normalize Et
   let finalBirim = normalizeUnit(rawBirim);
 
-  // KRİTİK: İsimde bir gramaj varsa ve kutu boşsa veya "ADET" ise kopyala
   if (nameUnit && (finalBirim === "ADET" || finalBirim === "" || finalBirim.length < nameUnit.length)) {
     finalBirim = nameUnit;
   }
 
   if (!finalBirim) finalBirim = "ADET";
 
-  // 3. İSİM TEMİZLEME (v14.35): Sadece gramajları sil, ismi koru.
+  // 3. İSİM TEMİZLEME
   let finalName = cleanProductName(product.urun_adi);
 
   // 4. TOPLAM STOK HESAPLAMA
@@ -127,6 +140,7 @@ function parseProduct(product) {
     } else {
       calculatedMiktar = total;
       calculatedBirim = (tag === "LT" || tag === "LI") ? (tag === "LI" ? "LU" : "L") : tag;
+      if (tag === "LU" || tag === "LI") calculatedBirim = "ADET";
     }
   }
 
