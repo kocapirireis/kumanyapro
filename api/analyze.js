@@ -57,7 +57,7 @@ module.exports = async (req, res) => {
       generationConfig: {
         temperature: 1.0,
         topK: 40,
-        maxOutputTokens: 1000,
+        maxOutputTokens: 2048,
         responseMimeType: "application/json"
       }
     });
