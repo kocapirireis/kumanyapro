@@ -2234,7 +2234,7 @@
                         throw new Error('İslem zaman aşımına ugradı (Sunucu cok yavas). Lütfen tekrar deneyin.');
                     }
                     if (error instanceof TypeError && error.message === 'Failed to fetch' || error.message === 'Load failed') {
-                        throw new Error('Sunucuya baglanılamadı. Apps Script yayınının "Anyone" (Herkes) olarak ayarlandıgından ve internet bağlantınızdan emin olun.');
+                        throw new Error('Bağlantı kesildi. İnternetinizi veya Vercel/Apps Script durumunu kontrol edin.');
                     }
                     console.error('API Call Hatası:', error);
                     throw error;
@@ -3141,9 +3141,17 @@
                         showToast("Uyarı: Sistem .HEIC formatını desteklememektedir."); cameraInput.value = ''; return;
                     }
 
-                    // İşlem başlarken önceki sonuç kutusunu tamamen gizle.
+                    // İşlem başlarken önceki tüm sonuçları ve detayları temizle.
                     const scannerContainer = document.querySelector('.scanned-items');
-                    if (scannerContainer) scannerContainer.classList.add('hidden');
+                    if (scannerContainer) {
+                        scannerContainer.classList.add('hidden');
+                        const checklist = scannerContainer.querySelector('.checklist');
+                        if (checklist) checklist.innerHTML = '';
+                        const detailDiv = scannerContainer.querySelector('.o-fatura-detay');
+                        if (detailDiv) detailDiv.textContent = '';
+                        const badgeStatus = scannerContainer.querySelector('.badge-status');
+                        if (badgeStatus) badgeStatus.textContent = '';
+                    }
 
                     try {
                         const loader = document.getElementById('fatura-loader');
@@ -3195,6 +3203,9 @@
                             }
                         } finally {
                             if (loader) loader.classList.remove('active');
+                            cameraInput.value = '';
+                            // v13.8 - Görsel Hafıza Yönetimi: İşlem bittikten sonra büyük veriyi serbest bırak
+                            compressedImageBase64 = null;
                         }
                     } catch (error) {
                         console.error("Görsel İşleme Hatası:", error);
