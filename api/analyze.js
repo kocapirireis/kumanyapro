@@ -57,7 +57,7 @@ module.exports = async (req, res) => {
       generationConfig: {
         temperature: 1.0,
         topK: 40,
-        maxOutputTokens: 4096,
+        maxOutputTokens: 2048,
         responseMimeType: "application/json"
       }
     });
@@ -78,6 +78,16 @@ module.exports = async (req, res) => {
     }
 
     const finalData = JSON.parse(jsonStr);
+    
+    // v14.1 - UnitHelper Entegrasyonu: Birimleri standartlaştır
+    const { normalizeUnit } = require("./utils/unitHelper");
+    if (finalData.urunler && Array.isArray(finalData.urunler)) {
+      finalData.urunler = finalData.urunler.map(item => ({
+        ...item,
+        birim: normalizeUnit(item.birim || item.birim_detay)
+      }));
+    }
+
     console.timeEnd("3_JSON_Parse_Islemi");
 
     console.timeEnd("Toplam_Sure");
