@@ -7,7 +7,7 @@ module.exports = async (req, res) => {
   const { imageBase64 } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 is required' });
 
-  console.log("--- MODELDEN KAYNAKLI HIZ OPTIMIZASYONU BAŞLADI ---");
+  console.log("--- MODEL HATASI DUZELTME & HIZ AYARLARI BAŞLADI ---");
   console.time("Toplam_Sure");
 
   try {
@@ -32,9 +32,12 @@ module.exports = async (req, res) => {
 
     console.time("2_Gemini_API_Yanit_Suresi");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ motor: "gemini-flash-latest" });
+    
+    // Hata Giderildi: motor -> model olarak düzeltildi (v13.16)
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash-latest" 
+    });
 
-    // v13.15 - API Lag Çözümleri: Reddit ve topluluk verilerine dayanarak optimize edildi
     const result = await model.generateContent({
       contents: [{
         role: "user",
@@ -49,11 +52,10 @@ module.exports = async (req, res) => {
         ]
       }],
       generationConfig: {
-        temperature: 1.0,           // Lag sorununu çözen anahtar değer
-        topK: 40,                  // Hız ve tutarlılık dengesi
-        maxOutputTokens: 500,      // Kısa cevap, hızlı sonuç
-        responseMimeType: "application/json",
-        thinking_level: "low"      // Derin düşünmeyi engelleyip hıza odaklayan parametre
+        temperature: 1.0,           // Hız ve lag çözümü için
+        topK: 40,                  // Stabilite için
+        maxOutputTokens: 500,      // Kısa ve hızlı yanıt için
+        responseMimeType: "application/json"
       }
     });
 
@@ -70,6 +72,6 @@ module.exports = async (req, res) => {
   } catch (err) {
     if (console.timeEnd) try { console.timeEnd("Toplam_Sure"); } catch(e) {}
     console.error("Vercel Backend Hatası:", err);
-    res.status(500).json({ error: "Yanıt Hatası", details: err.message });
+    res.status(500).json({ error: "Model veya Bağlantı Hatası", details: err.message });
   }
 };
