@@ -3482,30 +3482,18 @@
                             // v14.33 - Akıllı İsim Hafızası (Alias Array) Kaydı
                             const orijinalAd = (inputAd.getAttribute('data-orijinal') || '').toUpperCase().trim();
                             const guncelAd = (inputAd.value || '').toUpperCase().trim();
+                            let aliasAd = null;
 
+                            // Eğer isim elle değiştirilmişse (Gemini'den gelen isimden farklıysa)
                             if (orijinalAd && guncelAd && orijinalAd !== guncelAd) {
-                                // Mevcut ürünü bul ve alias'ı güncelle
-                                const urun = (window.globalUrunler || []).find(u => u.ad === guncelAd);
-                                if (urun) {
-                                    let currentAliases = Array.isArray(urun.alias) ? urun.alias : [];
-                                    if (!currentAliases.some(a => a.toUpperCase().trim() === orijinalAd)) {
-                                        currentAliases.push(orijinalAd);
-                                        urun.alias = currentAliases; // Local update
-                                        
-                                        // Supabase Update
-                                        sbFetch(`/rest/v1/urunler?ad=eq.${encodeURIComponent(guncelAd)}`, {
-                                            method: 'PATCH',
-                                            body: JSON.stringify({ alias: currentAliases }),
-                                            headers: { 'Prefer': 'return=minimal' }
-                                        }).catch(e => console.warn("Alias kaydedilemedi:", e));
-                                    }
-                                }
+                                aliasAd = orijinalAd;
+                                console.log(`[Hafıza] Yeni alias adayı: ${orijinalAd} -> ${guncelAd}`);
                             }
 
                             selectedItems.push({
                                 ad: urunAd,
-                                miktar: isNaN(miktarVal) ? 0 : miktarVal, // Geriye dönük uyumluluk
-                                toplam_stok: isNaN(miktarVal) ? 0 : miktarVal, // Supabase için net rakam
+                                miktar: isNaN(miktarVal) ? 0 : miktarVal,
+                                toplam_stok: isNaN(miktarVal) ? 0 : miktarVal,
                                 birim: birimVal,
                                 kategori: kategoriVal,
                                 fatura_miktar: inputFaturaMiktar ? parseFloat(inputFaturaMiktar.value.replace(',', '.')) : 0,
