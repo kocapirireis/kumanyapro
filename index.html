@@ -3484,14 +3484,14 @@
                             const inputBirimDetay = li.querySelector('.o-birim-detay');
 
                             // v14.33 - Akıllı İsim Hafızası (Alias Array) Kaydı
-                            const orijinalAd = (inputAd.getAttribute('data-orijinal') || '').toUpperCase().trim();
-                            const guncelAd = (inputAd.value || '').toUpperCase().trim();
+                            const hamGeminiAdi = (inputAd.getAttribute('data-orijinal') || '').trim();
+                            const guncelAd = (inputAd.value || '').trim();
                             let aliasAd = null;
 
-                            // Eğer isim elle değiştirilmişse (Gemini'den gelen isimden farklıysa)
-                            if (orijinalAd && guncelAd && orijinalAd !== guncelAd) {
-                                aliasAd = orijinalAd;
-                                console.log(`[Hafıza] Yeni alias adayı: ${orijinalAd} -> ${guncelAd}`);
+                            // Eğer isim elle değiştirilmişse veya farklıysa
+                            if (hamGeminiAdi && guncelAd && hamGeminiAdi.toUpperCase() !== guncelAd.toUpperCase()) {
+                                aliasAd = hamGeminiAdi;
+                                console.log(`[Hafıza] Yeni alias adayı saptandı: "${hamGeminiAdi}" -> "${guncelAd}"`);
                             }
 
                             selectedItems.push({
