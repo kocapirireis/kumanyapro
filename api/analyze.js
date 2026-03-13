@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { PDFDocument } = require("pdf-lib");
+const unitHelper = require("./utils/unitHelper");
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -79,13 +80,11 @@ module.exports = async (req, res) => {
 
     const finalData = JSON.parse(jsonStr);
     
-    // v14.1 - UnitHelper Entegrasyonu: Birimleri standartlaştır
-    const { normalizeUnit } = require("./utils/unitHelper");
+    // v14.4 - UnitHelper Entegrasyonu: Tüm satırları merkezi fonksiyondan geçir
     if (finalData.urunler && Array.isArray(finalData.urunler)) {
-      finalData.urunler = finalData.urunler.map(item => ({
-        ...item,
-        birim: normalizeUnit(item.birim || item.birim_detay)
-      }));
+      finalData.urunler = finalData.urunler
+        .map(item => unitHelper.parseProduct(item))
+        .filter(item => item !== null); // Boş satırları temizle
     }
 
     console.timeEnd("3_JSON_Parse_Islemi");
