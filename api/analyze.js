@@ -1,6 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { PDFDocument } = require("pdf-lib");
-const unitHelper = require("./utils/unitHelper");
+const unitHelper = require("./unitHelper.js");
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
