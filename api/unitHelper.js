@@ -1,6 +1,6 @@
 /**
  * unitHelper.js
- * Ürün isminden birim ayıklama ve ismi temizleme modülü. (v14.18)
+ * Ürün isminden birim ayıklama modülü. (v14.30 - İsim Koruma Modu)
  */
 
 const STANDARD_UNITS = ["KG", "GR", "L", "ML", "ADET", "12LI", "30LU", "LU", "PAKET", "KOLI", "G", "LT", "LU", "LI"];
@@ -23,53 +23,33 @@ function getSimilarity(s1, s2) {
 }
 
 /**
- * Ürün isminden gramaj/hacim bilgisini ayıklar. (Gelişmiş v14.18)
+ * Ürün isminden gramaj/hacim bilgisini ayıklar. (SADECE OKUMA - SİLME YOK)
  */
 function extractUnitFromName(name) {
   if (!name) return null;
-  
-  // ÖNCELİK: Uzun birimler (LU, LI, KG, GR)
-  // Bu regex 100'lü, 12'li gibi yapıları Litre (L) ile karıştırmadan yakalar
+  // \d+ ile sayı zorunlu hale getirildi (100LU, 500GR, 5L gibi)
   const namePattern = /(\d+[.,]?\d*)\s*(KG|GR|G|ML|LT|LU|LI|L|ADET)/i; 
   const match = name.match(namePattern);
   
   if (match) {
     let val = match[1].replace(',', '.');
     let unit = match[2].toUpperCase();
-    
-    // Dönüşümler
     if (unit === "G") unit = "GR";
     if (unit === "LT") unit = "L";
-    if (unit === "LI") unit = "LU"; // 12'li -> 12LU standardı
-    
+    if (unit === "LI") unit = "LU";
     return `${val} ${unit}`;
   }
   return null;
 }
 
 /**
- * Ürün ismindeki gereksiz birim, ambalaj ve sayı bilgilerini temizler.
+ * İSİM TEMİZLEME - DEVRE DIŞI BIRAKILDI (v14.30)
+ * Kullanıcı isteği: Ürün adına asla dokunma, sadece büyük harfe çevir.
  */
 function cleanProductName(name) {
   if (!name) return "";
-  
-  let cleaned = name.toUpperCase();
-
-  // 1. Gramaj ve hacimleri temizle (100'lü, 500GR, 5L, 7.5KG vb.)
-  // ' işaretli veya işaretsiz sayıları ve birimleri temizler
-  const unitPattern = /(\d+[.,]?\d*)\s*['’]?\s*(KG|GR|G|L|LT|ML|LU|LI|ADET)/gi;
-  cleaned = cleaned.replace(unitPattern, ' ');
-  
-  // 2. Ekstra ambalaj ve tek harf kirliliklerini temizle
-  const extraWords = ["TENEKE", "PET", "CAM", "SISE", "KOVA", "PAKET", "KOLI"];
-  const extraPattern = new RegExp(`\\b(${extraWords.join('|')})\\b`, 'gi');
-  cleaned = cleaned.replace(extraPattern, ' ');
-  
-  // 3. Sonda veya arada kalan anlamsız tek harfleri (I, Ü, İ gibi) temizle
-  cleaned = cleaned.replace(/\b[A-ZÇĞİÖŞÜ]\b/g, ' '); 
-
-  // Gereksiz boşlukları, tireleri ve özel karakterleri temizle
-  return cleaned.replace(/[./'’\-–]/g, ' ').replace(/\s+/g, ' ').trim();
+  // Sadece büyük harf ve gereksiz boşluk temizliği
+  return name.toUpperCase().trim();
 }
 
 /**
@@ -77,9 +57,8 @@ function cleanProductName(name) {
  */
 function normalizeUnit(rawUnit) {
   if (!rawUnit) return "ADET";
-  let unit = rawUnit.toUpperCase().trim().replace(/[.'’]/g, '').replace(/\s+/g, ' ');
+  let unit = (rawUnit || "").toString().toUpperCase().trim().replace(/[.'’]/g, '').replace(/\s+/g, ' ');
   
-  // Regex: Önce uzun kalıplar (KG, GR, LU, LI)
   const pattern = /(\d+[.,]?\d*)\s*(KG|GR|G|LT|ML|LU|LI|L|ADET)/i;
   const match = unit.match(pattern);
   
@@ -94,46 +73,35 @@ function normalizeUnit(rawUnit) {
   
   const pureUnit = unit.replace(/\s+/g, '');
   if (STANDARD_UNITS.includes(pureUnit)) return pureUnit;
-  
-  let bestMatch = pureUnit;
-  let highestScore = 0;
-  for (const std of STANDARD_UNITS) {
-    const score = getSimilarity(pureUnit, std);
-    if (score > highestScore) { highestScore = score; bestMatch = std; }
-  }
-  return highestScore >= 0.8 ? bestMatch : unit;
+  return unit;
 }
 
 /**
- * Ürün objesini temizler
+ * Ürün objesini işle (v14.30 - İSİM KORUMA)
  */
 function parseProduct(product) {
   if (!product) return null;
   
   let miktar = parseFloat(product.miktar) || 0;
-  let rawBirim = (product.birim || product.birim_detay || "").toString();
+  let rawBirim = (product.birim || product.birim_detay || "ADET").toString();
   
-  // Önce ürün isminden birim yakalamaya çalış (Daha güvenli)
+  // 1. İsimden Birim Ayıkla (Sadece kopyalamak için)
   let nameUnit = extractUnitFromName(product.urun_adi);
+  
+  // 2. Birimi Normalize Et
   let finalBirim = normalizeUnit(rawBirim);
 
-  // KRİTİK: Eğer isimden net bir gramaj veya "100LU" yakaladıysak, kutudaki (hatalı olabilen) birimin önüne geçsin.
+  // KRİTİK: İsimde bir gramaj varsa ve kutu boşsa veya "ADET" ise kopyala
   if (nameUnit && (finalBirim === "ADET" || finalBirim === "" || finalBirim.length < nameUnit.length)) {
     finalBirim = nameUnit;
   }
 
-  // Sayısal temizlik (Strip quantity if it repeats)
-  const qtyPattern = new RegExp(`^${miktar}\\s*`, 'i');
-  if (finalBirim.match(qtyPattern)) {
-    finalBirim = finalBirim.replace(qtyPattern, '').trim();
-  }
+  if (!finalBirim) finalBirim = "ADET";
 
-  if (!finalBirim || finalBirim === "") finalBirim = "ADET";
+  // 3. İSİM KORUMA: Gemini ne verdiyse o kalacak (Sadece Büyük Harf)
+  let finalName = (product.urun_adi || "").toUpperCase().trim();
 
-  // En son ismi temizle (İçindeki az önce ayıklanan birimleri siler)
-  let cleanedName = cleanProductName(product.urun_adi);
-
-  // HESAPLAMA (Toplam Stok):
+  // 4. TOPLAM STOK HESAPLAMA
   let calculatedMiktar = miktar;
   let calculatedBirim = finalBirim;
 
@@ -157,7 +125,7 @@ function parseProduct(product) {
 
   return {
     ...product,
-    urun_adi: cleanedName, // Artik "POŞET ÇAY Ü" yerine "POŞET ÇAY" kalacak
+    urun_adi: finalName, // Geminiden gelen isim korunuyor
     miktar: miktar,
     birim: finalBirim,
     birim_detay: finalBirim,
