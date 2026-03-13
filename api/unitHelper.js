@@ -1,9 +1,9 @@
 /**
  * unitHelper.js
- * Ürün isminden birim ayıklama ve ismi temizleme modülü. (v14.13)
+ * Ürün isminden birim ayıklama ve ismi temizleme modülü. (v14.18)
  */
 
-const STANDARD_UNITS = ["KG", "GR", "L", "ML", "ADET", "12LI", "30LU", "LU", "PAKET", "KOLI", "G", "LT"];
+const STANDARD_UNITS = ["KG", "GR", "L", "ML", "ADET", "12LI", "30LU", "LU", "PAKET", "KOLI", "G", "LT", "LU", "LI"];
 
 /**
  * İki metin arasındaki benzerlik oranını hesaplar (Dice's Coefficient).
@@ -23,17 +23,25 @@ function getSimilarity(s1, s2) {
 }
 
 /**
- * Ürün isminden gramaj/hacim bilgisini ayıklar.
+ * Ürün isminden gramaj/hacim bilgisini ayıklar. (Gelişmiş v14.18)
  */
 function extractUnitFromName(name) {
   if (!name) return null;
-  const namePattern = /(\d+[.,]?\d*)\s*(KG|GR|G|L|LT|ML|LU|ADET)/i;
+  
+  // ÖNCELİK: Uzun birimler (LU, LI, KG, GR)
+  // Bu regex 100'lü, 12'li gibi yapıları Litre (L) ile karıştırmadan yakalar
+  const namePattern = /(\d+[.,]?\d*)\s*(KG|GR|G|ML|LT|LU|LI|L|ADET)/i; 
   const match = name.match(namePattern);
+  
   if (match) {
     let val = match[1].replace(',', '.');
     let unit = match[2].toUpperCase();
+    
+    // Dönüşümler
     if (unit === "G") unit = "GR";
     if (unit === "LT") unit = "L";
+    if (unit === "LI") unit = "LU"; // 12'li -> 12LU standardı
+    
     return `${val} ${unit}`;
   }
   return null;
@@ -45,18 +53,23 @@ function extractUnitFromName(name) {
 function cleanProductName(name) {
   if (!name) return "";
   
-  // 1. Gramaj ve hacimleri temizle (500GR, 5L, 7.5KG vb.)
-  const unitPattern = /(\d+[.,]?\d*)\s*(KG|GR|G|L|LT|ML|LU|ADET)/gi;
-  
-  // 2. Ekstra ambalaj kelimelerini temizle
-  const extraWords = ["TENEKE", "PET", "CAM", "SISE", "KOVA", "PAKET"];
-  const extraPattern = new RegExp(`\\b(${extraWords.join('|')})\\b`, 'gi');
+  let cleaned = name.toUpperCase();
 
-  let cleaned = name.replace(unitPattern, '');
-  cleaned = cleaned.replace(extraPattern, '');
+  // 1. Gramaj ve hacimleri temizle (100'lü, 500GR, 5L, 7.5KG vb.)
+  // ' işaretli veya işaretsiz sayıları ve birimleri temizler
+  const unitPattern = /(\d+[.,]?\d*)\s*['’]?\s*(KG|GR|G|L|LT|ML|LU|LI|ADET)/gi;
+  cleaned = cleaned.replace(unitPattern, ' ');
   
-  // Gereksiz boşlukları ve tireleri temizle
-  return cleaned.replace(/[-–]/g, ' ').replace(/\s+/g, ' ').trim();
+  // 2. Ekstra ambalaj ve tek harf kirliliklerini temizle
+  const extraWords = ["TENEKE", "PET", "CAM", "SISE", "KOVA", "PAKET", "KOLI"];
+  const extraPattern = new RegExp(`\\b(${extraWords.join('|')})\\b`, 'gi');
+  cleaned = cleaned.replace(extraPattern, ' ');
+  
+  // 3. Sonda veya arada kalan anlamsız tek harfleri (I, Ü, İ gibi) temizle
+  cleaned = cleaned.replace(/\b[A-ZÇĞİÖŞÜ]\b/g, ' '); 
+
+  // Gereksiz boşlukları, tireleri ve özel karakterleri temizle
+  return cleaned.replace(/[./'’\-–]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -65,17 +78,23 @@ function cleanProductName(name) {
 function normalizeUnit(rawUnit) {
   if (!rawUnit) return "ADET";
   let unit = rawUnit.toUpperCase().trim().replace(/[.'’]/g, '').replace(/\s+/g, ' ');
-  const pattern = /(\d+[.,]?\d*)\s*(KG|GR|G|L|LT|ML|LU|ADET)/i;
+  
+  // Regex: Önce uzun kalıplar (KG, GR, LU, LI)
+  const pattern = /(\d+[.,]?\d*)\s*(KG|GR|G|LT|ML|LU|LI|L|ADET)/i;
   const match = unit.match(pattern);
+  
   if (match) {
     let val = match[1].replace(',', '.');
     let u = match[2].toUpperCase();
     if (u === "G") u = "GR";
-    if (u === "LT") u = "L";
+    if (u === "LT" || u === "L") u = "L";
+    if (u === "LI") u = "LU";
     return `${val} ${u}`;
   }
+  
   const pureUnit = unit.replace(/\s+/g, '');
   if (STANDARD_UNITS.includes(pureUnit)) return pureUnit;
+  
   let bestMatch = pureUnit;
   let highestScore = 0;
   for (const std of STANDARD_UNITS) {
@@ -86,72 +105,63 @@ function normalizeUnit(rawUnit) {
 }
 
 /**
- * Ürün objesini temizler: İsimden gramajı siler, birime yazar.
+ * Ürün objesini temizler
  */
 function parseProduct(product) {
   if (!product) return null;
   
   let miktar = parseFloat(product.miktar) || 0;
   let rawBirim = (product.birim || product.birim_detay || "").toString();
+  
+  // Önce ürün isminden birim yakalamaya çalış (Daha güvenli)
   let nameUnit = extractUnitFromName(product.urun_adi);
   let finalBirim = normalizeUnit(rawBirim);
 
-  // 1. ADET TEMİZLİĞİ: "60 ADET" -> "ADET"
+  // KRİTİK: Eğer isimden net bir gramaj veya "100LU" yakaladıysak, kutudaki (hatalı olabilen) birimin önüne geçsin.
+  if (nameUnit && (finalBirim === "ADET" || finalBirim === "" || finalBirim.length < nameUnit.length)) {
+    finalBirim = nameUnit;
+  }
+
+  // Sayısal temizlik (Strip quantity if it repeats)
   const qtyPattern = new RegExp(`^${miktar}\\s*`, 'i');
   if (finalBirim.match(qtyPattern)) {
     finalBirim = finalBirim.replace(qtyPattern, '').trim();
   }
 
-  // 2. İSİM ÖNCELİĞİ: İsimden gelen gramaj (500GR vb.) kutudaki "ADET" bilgisinden daha değerlidir.
-  if (nameUnit && (finalBirim === "" || finalBirim === "ADET" || finalBirim.includes("ADET"))) {
-    finalBirim = nameUnit;
-  }
-
   if (!finalBirim || finalBirim === "") finalBirim = "ADET";
 
-  // 4. TOPLAM STOK HESAPLAMA (YENİ): Fatura Adedi x Paket Özelliği
+  // En son ismi temizle (İçindeki az önce ayıklanan birimleri siler)
+  let cleanedName = cleanProductName(product.urun_adi);
+
+  // HESAPLAMA (Toplam Stok):
   let calculatedMiktar = miktar;
   let calculatedBirim = finalBirim;
 
-  const match = finalBirim.match(/^([\d.,]+)\s*(KG|GR|G|L|LT|ML|LU|ADET|PAKET|KOLI)?$/i);
-  if (match) {
-    let carpan = parseFloat(match[1].replace(",", ".")) || 1;
-    let tag = (match[2] || "ADET").toUpperCase();
-    
+  const mMatch = finalBirim.match(/^([\d.,]+)\s*(KG|GR|G|L|LT|ML|LU|LI|ADET)?$/i);
+  if (mMatch) {
+    let carpan = parseFloat(mMatch[1].replace(",", ".")) || 1;
+    let tag = (mMatch[2] || "ADET").toUpperCase();
     let total = miktar * carpan;
     
     if (tag === "GR" || tag === "G") {
-      if (total >= 1000) {
-        calculatedMiktar = Math.round((total / 1000) * 100) / 100;
-        calculatedBirim = "KG";
-      } else {
-        calculatedMiktar = total;
-        calculatedBirim = "GR";
-      }
+      if (total >= 1000) { calculatedMiktar = Math.round(total/10)/100; calculatedBirim = "KG"; }
+      else { calculatedMiktar = total; calculatedBirim = "GR"; }
     } else if (tag === "ML") {
-      if (total >= 1000) {
-        calculatedMiktar = Math.round((total / 1000) * 100) / 100;
-        calculatedBirim = "L";
-      } else {
-        calculatedMiktar = total;
-        calculatedBirim = "ML";
-      }
-    } else if (tag === "L" || tag === "LT" || tag === "KG") {
-        calculatedMiktar = total;
-        calculatedBirim = tag === "LT" ? "L" : tag;
+      if (total >= 1000) { calculatedMiktar = Math.round(total/10)/100; calculatedBirim = "L"; }
+      else { calculatedMiktar = total; calculatedBirim = "ML"; }
+    } else {
+      calculatedMiktar = total;
+      calculatedBirim = (tag === "LT" || tag === "LI") ? (tag === "LI" ? "LU" : "L") : tag;
     }
   }
 
-  // 5. İSİM TEMİZLEME: Ürün ismindeki 500GR, TENEKE gibi bilgileri sil.
-  let cleanedName = cleanProductName(product.urun_adi);
-
   return {
     ...product,
-    urun_adi: cleanedName,
+    urun_adi: cleanedName, // Artik "POŞET ÇAY Ü" yerine "POŞET ÇAY" kalacak
     miktar: miktar,
     birim: finalBirim,
     birim_detay: finalBirim,
-    toplam_stok_ai: `${calculatedMiktar} ${calculatedBirim}` // Frontend'in beklediği alan
+    toplam_stok_ai: `${calculatedMiktar} ${calculatedBirim}`
   };
 }
 
