@@ -126,40 +126,46 @@ module.exports = async (req, res) => {
         const supabaseKey = process.env.SUPABASE_KEY;
         
         if (supabaseUrl && supabaseKey) {
-          const aliasRes = await fetch(`${supabaseUrl}/rest/v1/urunler?select=ad,alias&alias=not.is.null`, {
+          // Tüm ürünleri çek (Alias sütununu da al)
+          const aliasRes = await fetch(`${supabaseUrl}/rest/v1/urunler?select=ad,alias`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
           
           if (aliasRes.ok) {
             const urunlerList = await aliasRes.json();
             if (Array.isArray(urunlerList) && urunlerList.length > 0) {
-              finalData.urunler = finalData.urunler.map(u => {
-                const hamAd = (u.urun_adi || "").toUpperCase().trim();
-                const processed = unitHelper.parseProduct(u);
-                const temizAd = (processed.urun_adi || "").toUpperCase().trim();
-                
-                // Karşılaştırma için süper temiz isim (Boşluksuz ve noktalama işaretsiz)
-                const normalize = (str) => (str || "").toUpperCase().replace(/[^A-Z0-9ÇĞİÖŞÜ]/g, "");
-                const searchKeyHam = normalize(hamAd);
-                const searchKeyTemiz = normalize(temizAd);
+              // Karşılaştırma için süper temiz isim (Boşluksuz ve noktalama işaretsiz)
+              const normalize = (str) => (str || "").toUpperCase().replace(/[^A-Z0-9ÇĞİÖŞÜ]/g, "");
 
-                console.log(`[Hafıza] Aranan Anahtarlar: "${searchKeyHam}" veya "${searchKeyTemiz}"`);
+              finalData.urunler = finalData.urunler.map(u => {
+                const originalGeminiName = (u.raw_adi || u.urun_adi || "").toUpperCase().trim();
+                const cleanedGeminiName = (u.urun_adi || "").toUpperCase().trim();
+                
+                const keyRaw = normalize(originalGeminiName);
+                const keyCleaned = normalize(cleanedGeminiName);
+
+                console.log(`[Hafıza] Aranan Anahtarlar: "${keyRaw}" (Ham), "${keyCleaned}" (Temiz)`);
                 
                 const match = urunlerList.find(dbU => {
-                  if (!dbU.alias || !Array.isArray(dbU.alias)) return false;
-                  return dbU.alias.some(a => {
-                    const aliasKey = normalize(a);
-                    // %100 boşluksuz eşleşme veya ana ürün adıyla eşleşme
-                    return aliasKey === searchKeyHam || aliasKey === searchKeyTemiz || normalize(dbU.ad) === searchKeyHam;
-                  });
+                  // 1. Ana isimle direk eşleşme (Normalizasyon ile)
+                  if (normalize(dbU.ad) === keyRaw || normalize(dbU.ad) === keyCleaned) return true;
+                  
+                  // 2. Alias listesinde arama
+                  if (dbU.alias && Array.isArray(dbU.alias)) {
+                    return dbU.alias.some(a => {
+                      const aKey = normalize(a);
+                      return aKey === keyRaw || aKey === keyCleaned;
+                    });
+                  }
+                  return false;
                 });
                 
                 if (match) {
                   console.log(`[Hafıza] EŞLEŞME TAMAM: -> ${match.ad}`);
-                  u.gemini_adi = hamAd;
+                  u.gemini_adi = originalGeminiName;
                   u.urun_adi = match.ad;
                 } else {
-                  u.gemini_adi = hamAd;
+                  u.gemini_adi = originalGeminiName;
                 }
                 return u;
               });
