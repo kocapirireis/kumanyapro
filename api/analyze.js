@@ -7,7 +7,7 @@ module.exports = async (req, res) => {
   const { imageBase64 } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 is required' });
 
-  console.log("--- MODEL ISMI GUNCELLEME (1.5 Flash) BAŞLADI ---");
+  console.log("--- KESIN CALISAN MODEL (Flash Latest) BAŞLADI ---");
   console.time("Toplam_Sure");
 
   try {
@@ -33,9 +33,9 @@ module.exports = async (req, res) => {
     console.time("2_Gemini_API_Yanit_Suresi");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     
-    // v13.17 - Model ismi sadeleştirildi (Hata alırsak yedek: gemini-flash-latest)
+    // v13.18 - Kesin çalışan ve az önce test ettiğimiz isme geri dönüldü
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash" 
+      model: "gemini-flash-latest" 
     });
 
     const result = await model.generateContent({
@@ -72,12 +72,10 @@ module.exports = async (req, res) => {
   } catch (err) {
     if (console.timeEnd) try { console.timeEnd("Toplam_Sure"); } catch(e) {}
     console.error("Vercel Backend Hatası:", err);
-    
-    // YEDEK MEKANIZMA: Eğer 1.5-flash hata verirse otomatik olarak çalışan diğer isme yönlendirilecek mesajı veriyoruz
     res.status(500).json({ 
-      error: "Model Erişimi Başarısız", 
+      error: "Sistem Hatası", 
       details: err.message,
-      suggestion: "gemini-1.5-flash ismi çalışmadıysa bir sonraki denemede gemini-flash-latest ismine dönebiliriz."
+      note: "Model isminde veya kotada bir sorun olabilir."
     });
   }
 };
