@@ -10,11 +10,11 @@ const STANDARD_UNITS = ["KG", "GR", "L", "ML", "ADET", "12LI", "30LU", "LU", "PA
  * 0 ile 1 arasında bir değer döner. 1 = Tam eşleşme.
  */
 function getSimilarity(s1, s2) {
-  const v1 = s1.toUpperCase().replace(/\s+/g, '');
-  const v2 = s2.toUpperCase().replace(/\s+/g, '');
+  const v1 = (s1 || "").toUpperCase().replace(/\s+/g, '');
+  const v2 = (s2 || "").toUpperCase().replace(/\s+/g, '');
   
   if (v1 === v2) return 1.0;
-  if (v1.length < 2 || v2.length < 2) return 0;
+  if (!v1 || !v2 || v1.length < 2 || v2.length < 2) return 0;
 
   const bigrams1 = new Set();
   for (let i = 0; i < v1.length - 1; i++) bigrams1.add(v1.substring(i, i + 2));
@@ -31,41 +31,56 @@ function getSimilarity(s1, s2) {
 }
 
 /**
+ * Ürün isminden birim bilgisini (Örn: 500GR, 5L) ayıklar.
+ */
+function extractUnitFromName(name) {
+  if (!name) return null;
+  // İsmin sonundaki veya içindeki 500GR, 1.5KG gibi yapıları yakala
+  const namePattern = /(\d+[.,]?\d*)\s*(KG|GR|G|L|LT|ML|LU|ADET)/i;
+  const match = name.match(namePattern);
+  if (match) {
+    let val = match[1].replace(',', '.');
+    let unit = match[2].toUpperCase();
+    if (unit === "G") unit = "GR";
+    if (unit === "LT") unit = "L";
+    return `${val} ${unit}`;
+  }
+  return null;
+}
+
+/**
  * Ham metinden birimi ayıklar ve standartlaştırır.
  * Örn: "800GR" -> "GR", "30'LU" -> "30LU"
  */
 function normalizeUnit(rawUnit) {
   if (!rawUnit) return "ADET";
   
+  // Eğer sadece "ADET" veya türeviyse ve biz isimden daha iyi bir şey bulduysak onu kullanacağız.
   let unit = rawUnit.toUpperCase().trim()
     .replace(/[.'’]/g, '') // Nokta ve kesme işaretlerini temizle
-    .replace(/\s+/g, '');  // Boşlukları kaldır
+    .replace(/\s+/g, ' ');  // Boşlukları tek boşluğa düşür
 
-  // 1. Doğrudan standart listede var mı?
-  if (STANDARD_UNITS.includes(unit)) return unit;
-
-  // 2. Regex ile kalıp yakalama
-  const patterns = [
-    { regex: /(\d+)\s*(KG|GR|G|L|LT|ML|LU|ADET)/i, transform: (m) => m[1] + m[2].toUpperCase() },
-    { regex: /(KG|GR|G|L|LT|ML|LU|ADET)/i, transform: (m) => m[1].toUpperCase() }
-  ];
-
-  for (const p of patterns) {
-    const match = unit.match(p.regex);
-    if (match) {
-        const found = p.transform(match);
-        if (STANDARD_UNITS.includes(found)) return found;
-        if (found === "G") return "GR";
-        if (found === "LT") return "L";
-    }
+  // Regex ile sayı + birim kalıbı yakalama (Örn: "6 ADET", "30 KG")
+  const pattern = /(\d+[.,]?\d*)\s*(KG|GR|G|L|LT|ML|LU|ADET)/i;
+  const match = unit.match(pattern);
+  
+  if (match) {
+    let val = match[1].replace(',', '.');
+    let u = match[2].toUpperCase();
+    if (u === "G") u = "GR";
+    if (u === "LT") u = "L";
+    return `${val} ${u}`;
   }
 
-  // 3. Bulanık Eşleşme (Fuzzy Match - %80 eşik)
-  let bestMatch = unit;
-  let highestScore = 0;
+  // Eğer sayı yoksa doğrudan standart listede mi bak
+  const pureUnit = unit.replace(/\s+/g, '');
+  if (STANDARD_UNITS.includes(pureUnit)) return pureUnit;
 
+  // Bulanık Eşleşme
+  let bestMatch = pureUnit;
+  let highestScore = 0;
   for (const std of STANDARD_UNITS) {
-    const score = getSimilarity(unit, std);
+    const score = getSimilarity(pureUnit, std);
     if (score > highestScore) {
       highestScore = score;
       bestMatch = std;
@@ -81,9 +96,24 @@ function normalizeUnit(rawUnit) {
 function parseProduct(product) {
   if (!product) return null;
   
+  let rawBirim = (product.birim || product.birim_detay || "").toString();
+  let nameUnit = extractUnitFromName(product.urun_adi);
+  
+  let finalBirim = normalizeUnit(rawBirim);
+
+  // KRİTİK DÜZELTME: Eğer isimden net bir birim bulduysak (Örn: 800 GR) 
+  // ve gelen ham birim sadece "ADET" içeriyorsa, isimdeki birimi tercih et.
+  if (nameUnit && (finalBirim.includes("ADET") || finalBirim === "ADET")) {
+    finalBirim = nameUnit;
+  }
+
+  // Eğer "6 ADET" gibi bir şey kaldıysa ve isimde birim bulamadıysak, 
+  // faturadaki miktar kutusuyla çakışmaması için sadece birimi de bırakabiliriz ama 
+  // kullanıcı "kutucuğun içinde sadece ayıkladığımız birim kalsın" dediği için:
+  
   return {
     ...product,
-    birim: normalizeUnit(product.birim || product.birim_detay),
+    birim: finalBirim,
     miktar: parseFloat(product.miktar) || 0
   };
 }
@@ -91,5 +121,6 @@ function parseProduct(product) {
 module.exports = {
   normalizeUnit,
   parseProduct,
+  extractUnitFromName,
   STANDARD_UNITS
 };
