@@ -3338,6 +3338,42 @@
                                         </div>
                                 </div>`;
                             checklist.appendChild(li);
+
+                            // Canlı Hesaplama Listener'ı Ekle (v14.16)
+                            const inputMiktar = li.querySelector('.o-miktar');
+                            const inputBirimDet = li.querySelector('.o-birim-detay');
+                            const inputTotal = li.querySelector('.o-toplam-stok');
+
+                            const updateLiveTotal = () => {
+                                let m = parseFloat(inputMiktar.value.replace(',', '.')) || 0;
+                                let b = inputBirimDet.value.toUpperCase().trim();
+                                
+                                // Sayısal çarpanı ayıkla (Örn: 500GR)
+                                const mMatch = b.match(/^([\d.,]+)\s*(KG|GR|G|L|LT|ML|LU|ADET|PAKET|KOLI)?$/i);
+                                if (mMatch) {
+                                    let c = parseFloat(mMatch[1].replace(',', '.')) || 1;
+                                    let t = (mMatch[2] || "ADET").toUpperCase();
+                                    let tot = m * c;
+                                    
+                                    if (t === "GR" || t === "G") {
+                                        if (tot >= 1000) inputTotal.value = (Math.round(tot/10)/100) + " KG";
+                                        else inputTotal.value = tot + " GR";
+                                    } else if (t === "ML") {
+                                        if (tot >= 1000) inputTotal.value = (Math.round(tot/10)/100) + " L";
+                                        else inputTotal.value = tot + " ML";
+                                    } else if (["L","LT","KG"].includes(t)) {
+                                        inputTotal.value = tot + " " + (t === "LT" ? "L" : t);
+                                    } else {
+                                        inputTotal.value = tot + " ADET";
+                                    }
+                                } else {
+                                    inputTotal.value = m + " " + (b || "ADET");
+                                }
+                            };
+
+                            inputMiktar.addEventListener('input', updateLiveTotal);
+                            inputBirimDet.addEventListener('input', updateLiveTotal);
+
                             lucide.createIcons();
                         });
                     }
