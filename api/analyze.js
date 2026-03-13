@@ -8,7 +8,7 @@ module.exports = async (req, res) => {
   const { imageBase64 } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 is required' });
 
-  console.log("--- ANALIZ v14.24 (Mega JSON Fix) BAŞLADI ---");
+  console.log("--- ANALIZ v14.25 (Cerrahi JSON Sanitizer) BAŞLADI ---");
   console.time("Toplam_Sure");
 
   let rawText = "";
@@ -47,13 +47,13 @@ module.exports = async (req, res) => {
               mimeType: "application/pdf"
             }
           },
-          { text: "Extract invoice items into a JSON array named 'urunler'. Each object: {urun_adi, miktar, birim, birim_detay}. ONLY return minified JSON string." }
+          { text: "Extract invoice items into a JSON array named 'urunler'. Each object MUST have: {urun_adi, miktar, birim, birim_detay}. ONLY return the JSON object." }
         ]
       }],
       generationConfig: {
         temperature: 0.1,
         topK: 1,
-        maxOutputTokens: 4000, // 41 satır için güvenli alan
+        maxOutputTokens: 4000,
         responseMimeType: "application/json"
       }
     });
@@ -64,48 +64,45 @@ module.exports = async (req, res) => {
 
     console.time("3_JSON_Parse_Islemi");
     
-    // v14.24 - GELİŞMİŞ JSON AYIKLAMA VE TAMİR
-    let jsonToParse = rawText;
+    // v14.25 - CERRAHİ TEMİZLİK (Sanitizer)
+    let processedJson = rawText;
+
+    // 1. Gereksiz Markdown ve ön/son ekleri temizle
+    const firstBrace = processedJson.indexOf('{');
+    const lastBrace = Math.max(processedJson.lastIndexOf('}'), processedJson.lastIndexOf(']'));
     
-    // 1. Regex ile JSON bloğunu bul (Markdown block'ları veya ön ekleri temizler)
-    const jsonMatch = rawText.match(/\{[\s\S]*/);
-    if (jsonMatch) jsonToParse = jsonMatch[0];
+    if (firstBrace !== -1 && lastBrace !== -1) {
+        processedJson = processedJson.substring(firstBrace, lastBrace + 1);
+    }
 
     let finalData = null;
     try {
-        finalData = JSON.parse(jsonToParse);
-    } catch (parseErr) {
-        console.warn("JSON Tamir Modu Aktif...");
+        finalData = JSON.parse(processedJson);
+    } catch (err) {
+        console.warn("Otomatik Tamir Başlıyor...");
         
-        // 2. Kırısal Tamir (Truncation kurtarma)
-        let lastClosingBrace = jsonToParse.lastIndexOf('}');
-        if (lastClosingBrace !== -1) {
-            let fixedStr = jsonToParse.substring(0, lastClosingBrace + 1);
-            
-            // Eğer urunler dizisi içindeyse kapatmayı tamamla
-            if (fixedStr.includes('"urunler":')) {
-                // Sondaki olası virgülü temizle (Örn: ...}, ]})
-                fixedStr = fixedStr.replace(/,\s*$/, "");
-                if (fixedStr.split('{').length > fixedStr.split('}').length) {
-                   // Hala açık parantez varsa (bir objenin ortasında kesildiyse), bir önceki objeye geri git
-                   let secondLastBrace = fixedStr.substring(0, fixedStr.length - 1).lastIndexOf('}');
-                   if (secondLastBrace !== -1) {
-                       fixedStr = fixedStr.substring(0, secondLastBrace + 1);
-                   }
-                }
-                fixedStr = fixedStr.replace(/,\s*$/, "") + ']}';
-            } else {
-                fixedStr += '}';
-            }
-            
-            try {
-                finalData = JSON.parse(fixedStr);
-                console.log("JSON başarıyla kurtarıldı. Ürün sayısı:", finalData.urunler?.length);
-            } catch (e2) {
-                throw new Error("Kritik JSON Hatası: Veri tamir edilemeyecek kadar bozuk.");
-            }
+        // 2. Yarım Kalan JSON Kurtarma
+        let attempt = processedJson;
+        
+        // Eğer dizi bittiyse (]) ama obje bitmediyse
+        if (attempt.endsWith(']')) {
+            attempt += '}';
         } else {
-            throw parseErr;
+            // Tamamen yarım kaldıysa en son tam objeyi bul
+            let lastCompleteObj = attempt.lastIndexOf('}');
+            if (lastCompleteObj !== -1) {
+                attempt = attempt.substring(0, lastCompleteObj + 1);
+                attempt = attempt.replace(/,\s*$/, ""); // Sondaki virgülü sil
+                if (attempt.includes('"urunler":')) attempt += ']}';
+                else attempt += '}';
+            }
+        }
+
+        try {
+            finalData = JSON.parse(attempt);
+        } catch (fatal) {
+            console.error("Kurtarma Başarısız:", attempt);
+            throw new Error("Veri çok uzun veya formatı bozuk (Kurtarılamadı).");
         }
     }
     
@@ -117,11 +114,10 @@ module.exports = async (req, res) => {
     }
 
     console.timeEnd("3_JSON_Parse_Islemi");
-    console.timeEnd("Toplam_Sure");
     res.status(200).json(finalData);
 
   } catch (err) {
-    console.error("Vercel Backend Hatası:", err);
+    console.error("Final Backend Hatası:", err);
     res.status(500).json({ 
       error: "Analiz Verisi Okunamadı", 
       details: err.message,
