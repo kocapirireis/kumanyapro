@@ -3325,7 +3325,10 @@
                                         class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white mb-1 o-ad uppercase"
                                         data-orijinal="${urun.gemini_adi || urun.urun_adi || ''}"
                                         value="${urun.urun_adi || ''}">
-                                    <div class="text-[10px] text-muted mb-2 px-1 italic">Hafıza Kaydı: ${urun.gemini_adi || 'Bilinmiyor'}</div>
+                                    <div class="text-[10px] mb-2 px-1 italic flex items-center gap-1 ${urun.match_status === 'matched' ? 'text-success' : 'text-muted'}">
+                                        <i data-lucide="${urun.match_status === 'matched' ? 'check-circle' : 'help-circle'}" style="width:10px; height:10px;"></i>
+                                        ${urun.match_status === 'matched' ? '✅ HAFIZADAN GELDİ' : '❓ TANINMADI'} : ${urun.gemini_adi || 'Bilinmiyor'}
+                                    </div>
                                     <input type="hidden" class="o-kategori" value="${urun.kategori || 'diger'}">
                                     <input type="hidden" class="o-birim-gizli" value="${urun.birim}">
                                             <div class="grid gap-2" style="display:grid; grid-template-columns: 0.6fr 1fr 0.8fr 1.2fr;">
