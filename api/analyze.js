@@ -3,12 +3,25 @@ const { PDFDocument } = require("pdf-lib");
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
-  const { imageBase64 } = req.body;
+  // Base64 önekini temizle (data:image/jpeg;base64, vs. varsa sil)
+  const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
   
   try {
     const pdfDoc = await PDFDocument.create();
-    const imageBytes = Buffer.from(imageBase64, 'base64');
-    const image = await pdfDoc.embedJpg(imageBytes);
+    const imageBytes = Buffer.from(cleanBase64, 'base64');
+    
+    // Format tespiti (PNG veya JPG)
+    let image;
+    if (imageBase64.includes("image/png")) {
+        image = await pdfDoc.embedPng(imageBytes);
+    } else {
+        try {
+            image = await pdfDoc.embedJpg(imageBytes);
+        } catch (e) {
+            image = await pdfDoc.embedPng(imageBytes);
+        }
+    }
+
     const page = pdfDoc.addPage([image.width, image.height]);
     page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
     const pdfBytes = await pdfDoc.save();
