@@ -134,28 +134,32 @@ module.exports = async (req, res) => {
             const urunlerList = await aliasRes.json();
             if (Array.isArray(urunlerList) && urunlerList.length > 0) {
               finalData.urunler = finalData.urunler.map(u => {
-                const cleanedName = (u.urun_adi || "").toUpperCase().trim();
-                const originalGeminiName = (u.raw_adi || "").toUpperCase().trim();
+                const hamAd = (u.urun_adi || "").toUpperCase().trim();
+                const processed = unitHelper.parseProduct(u);
+                const temizAd = (processed.urun_adi || "").toUpperCase().trim();
                 
-                console.log(`[Hafıza] Sorgulanan: "${originalGeminiName}" (Ham), "${cleanedName}" (Temiz)`);
+                // Karşılaştırma için süper temiz isim (Boşluksuz ve noktalama işaretsiz)
+                const normalize = (str) => (str || "").toUpperCase().replace(/[^A-Z0-9ÇĞİÖŞÜ]/g, "");
+                const searchKeyHam = normalize(hamAd);
+                const searchKeyTemiz = normalize(temizAd);
+
+                console.log(`[Hafıza] Aranan Anahtarlar: "${searchKeyHam}" veya "${searchKeyTemiz}"`);
                 
-                // Alias listesinde hem ham halini hem temiz halini ara
                 const match = urunlerList.find(dbU => {
-                  const hasMatch = dbU.alias && Array.isArray(dbU.alias) && 
-                                   dbU.alias.some(a => {
-                                     const aliasName = a.toUpperCase().trim();
-                                     return aliasName === originalGeminiName || aliasName === cleanedName;
-                                   });
-                  if (hasMatch) console.log(`[Hafıza] Eşleşen Alias Listesi:`, dbU.alias);
-                  return hasMatch;
+                  if (!dbU.alias || !Array.isArray(dbU.alias)) return false;
+                  return dbU.alias.some(a => {
+                    const aliasKey = normalize(a);
+                    // %100 boşluksuz eşleşme veya ana ürün adıyla eşleşme
+                    return aliasKey === searchKeyHam || aliasKey === searchKeyTemiz || normalize(dbU.ad) === searchKeyHam;
+                  });
                 });
                 
                 if (match) {
                   console.log(`[Hafıza] EŞLEŞME TAMAM: -> ${match.ad}`);
-                  u.gemini_adi = originalGeminiName; // En ham halini referans için sakla
+                  u.gemini_adi = hamAd;
                   u.urun_adi = match.ad;
                 } else {
-                  u.gemini_adi = originalGeminiName;
+                  u.gemini_adi = hamAd;
                 }
                 return u;
               });
