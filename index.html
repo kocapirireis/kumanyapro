@@ -3189,7 +3189,8 @@
                                 if (apiError.message.includes("KOTA_DOLDU")) {
                                     alert("Kota doldu, lütfen 30 saniye bekleyip tekrar deneyin.");
                                 } else {
-                                    renderScannedItems([], "error", "Yapay Zeka hatası: " + apiError.message);
+                                    renderScannedItems([], "error", "Analiz Hatası: " + apiError.message);
+                                    showToast("Analiz sırasında bir sorun oluştu. Lütfen konsolu veya Vercel loglarını kontrol edin.", "error");
                                 }
                             }
                         } finally {
