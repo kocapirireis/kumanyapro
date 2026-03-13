@@ -1,6 +1,6 @@
 /**
  * unitHelper.js
- * Ürün isminden birim ayıklama modülü. (v14.30 - İsim Koruma Modu)
+ * Ürün isminden birim ayıklama modülü. (v14.35 - Cerrahi Temizlik Geri Geldi)
  */
 
 const STANDARD_UNITS = ["KG", "GR", "L", "ML", "ADET", "12LI", "30LU", "LU", "PAKET", "KOLI", "G", "LT", "LU", "LI"];
@@ -23,11 +23,10 @@ function getSimilarity(s1, s2) {
 }
 
 /**
- * Ürün isminden gramaj/hacim bilgisini ayıklar. (SADECE OKUMA - SİLME YOK)
+ * Ürün isminden gramaj/hacim bilgisini ayıklar.
  */
 function extractUnitFromName(name) {
   if (!name) return null;
-  // \d+ ile sayı zorunlu hale getirildi (100LU, 500GR, 5L gibi)
   const namePattern = /(\d+[.,]?\d*)\s*(KG|GR|G|ML|LT|LU|LI|L|ADET)/i; 
   const match = name.match(namePattern);
   
@@ -43,13 +42,21 @@ function extractUnitFromName(name) {
 }
 
 /**
- * İSİM TEMİZLEME - DEVRE DIŞI BIRAKILDI (v14.30)
- * Kullanıcı isteği: Ürün adına asla dokunma, sadece büyük harfe çevir.
+ * ÜRÜN İSMİNİ TEMİZLE (v14.35)
+ * Sadece Sayı + Birim içeren kısımları siler (Örn: 500GR, 5L, 2.5 KG).
+ * Kelime sınırlarına (\b) dikkat ederek harf çalmayı önler.
  */
 function cleanProductName(name) {
   if (!name) return "";
-  // Sadece büyük harf ve gereksiz boşluk temizliği
-  return name.toUpperCase().trim();
+  let cleaned = name.toUpperCase();
+
+  // 1. Sayı + Birim kalıplarını temizle (Örn: 500GR, 5 L, 1.5LT)
+  // Parantez içindeki birimleri de kapsar: (500GR) -> ""
+  const unitRegex = /[\(\[]?(\d+[.,]?\d*)\s*(KG|GR|G|ML|LT|L|ADET|PAKET|KOLİ|KOLI)[\)\]]?/gi;
+  cleaned = cleaned.replace(unitRegex, " ");
+
+  // 2. Temizlik sonrası bozulan boşlukları düzelt
+  return cleaned.replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -77,7 +84,7 @@ function normalizeUnit(rawUnit) {
 }
 
 /**
- * Ürün objesini işle (v14.30 - İSİM KORUMA)
+ * Ürün objesini işle (v14.35 - CERRAHİ TEMİZLİK)
  */
 function parseProduct(product) {
   if (!product) return null;
@@ -98,8 +105,8 @@ function parseProduct(product) {
 
   if (!finalBirim) finalBirim = "ADET";
 
-  // 3. İSİM KORUMA: Gemini ne verdiyse o kalacak (Sadece Büyük Harf)
-  let finalName = (product.urun_adi || "").toUpperCase().trim();
+  // 3. İSİM TEMİZLEME (v14.35): Sadece gramajları sil, ismi koru.
+  let finalName = cleanProductName(product.urun_adi);
 
   // 4. TOPLAM STOK HESAPLAMA
   let calculatedMiktar = miktar;
@@ -125,7 +132,7 @@ function parseProduct(product) {
 
   return {
     ...product,
-    urun_adi: finalName, // Geminiden gelen isim korunuyor
+    urun_adi: finalName, 
     miktar: miktar,
     birim: finalBirim,
     birim_detay: finalBirim,
