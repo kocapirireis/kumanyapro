@@ -8,7 +8,7 @@ module.exports = async (req, res) => {
   const { imageBase64 } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 is required' });
 
-  console.log("--- YENI NESIL ANALIZ (3.1 Flash Lite) BAŞLADI ---");
+  console.log("--- ANALIZ v14.21 (Gelişmiş JSON Tamir) BAŞLADI ---");
   console.time("Toplam_Sure");
 
   let rawText = "";
@@ -26,7 +26,6 @@ module.exports = async (req, res) => {
       image = await pdfDoc.embedPng(imageBytes);
     }
 
-    // PDF ölçeğini koruyarak hafifletme (v13.24)
     const scale = 0.5;
     const dims = image.scale(scale);
     const page = pdfDoc.addPage([dims.width, dims.height]);
@@ -34,12 +33,12 @@ module.exports = async (req, res) => {
     const pdfBytes = await pdfDoc.save();
     console.timeEnd("1_PDF_Hazirlama");
 
-    console.time("2_Gemini_3.1_Lite_Yanit_Suresi");
+    console.time("2_Gemini_Lite_Yanit_Suresi");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     
-    // Şampiyon model: gemini-3.1-flash-lite-preview (v13.24)
+    // v14.21 - Daha stabil model ismi ve konfigurasyon
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-3.1-flash-lite-preview" 
+      model: "gemini-1.5-flash" // Flash 1.5 daha derin JSON destegi sunar
     });
 
     const result = await model.generateContent({
@@ -52,65 +51,83 @@ module.exports = async (req, res) => {
               mimeType: "application/pdf"
             }
           },
-          { text: "Extract invoice items into a JSON array named 'urunler'. Each object MUST have: {urun_adi, miktar, birim, birim_detay}. ONLY return JSON. Return minified JSON." }
+          { text: "Extract invoice items into a JSON array named 'urunler'. Each object: {urun_adi, miktar, birim, birim_detay}. ONLY return JSON. Return minified JSON." }
         ]
       }],
       generationConfig: {
-        temperature: 1.0,
-        topK: 40,
-        maxOutputTokens: 3000, 
+        temperature: 0.1, // Daha az 'yaratıcılık', daha stabil JSON
+        topK: 1,
+        maxOutputTokens: 4096, // 41+ satır için güvenli sınır
         responseMimeType: "application/json"
       }
     });
 
     const response = await result.response;
     rawText = response.text();
-    console.log("Modelin Ham Cevabı:", rawText);
-    console.timeEnd("2_Gemini_3.1_Lite_Yanit_Suresi");
+    console.timeEnd("2_Gemini_Lite_Yanit_Suresi");
 
     console.time("3_JSON_Parse_Islemi");
     
-    // v14.20 - GELİŞMİŞ AKILLI JSON TAMIR: Kesilen listeleri kurtar
+    // v14.21 - MEGA JSON TAMIR: Döngüsel Kurtarma
     let cleanJson = rawText.trim();
-    if (!cleanJson.endsWith('}') && !cleanJson.endsWith(']')) {
-        // En son tamamlanmış ürün objesini bulalım
-        let lastBrace = cleanJson.lastIndexOf('}');
-        if (lastBrace !== -1) {
-            cleanJson = cleanJson.substring(0, lastBrace + 1);
-            // Eğer bir liste içindeyse kapat
-            if (cleanJson.includes('[')) cleanJson += ']}';
-            else cleanJson += '}';
-        } else {
-            // Hiç süslü parantez yoksa, kaba taslak kapatmayı dene
-            cleanJson += ']}';
-        }
-    }
+    let finalData = null;
 
-    const finalData = JSON.parse(cleanJson);
+    // JSON zaten tam ise direkt parse et
+    try {
+        finalData = JSON.parse(cleanJson);
+    } catch (initialErr) {
+        console.warn("JSON yarım geldi, tamir deneniyor...");
+        
+        // Yarım kalmış metni adım adım tamir et
+        let attempt = cleanJson;
+        let success = false;
+        
+        // Sondan geriye en son kapalı objeyi (}) bulana kadar dene
+        while (attempt.length > 5 && !success) {
+            let lastBrace = attempt.lastIndexOf('}');
+            if (lastBrace === -1) break;
+            
+            attempt = attempt.substring(0, lastBrace + 1);
+            
+            // JSON yapısını zorla kapat (Trailing comma riskini de temizle)
+            let tryFix = attempt;
+            if (tryFix.includes('"urunler":')) {
+                tryFix = tryFix.replace(/,\s*$/, ""); // Sondaki fazlalık virgülü sil
+                tryFix += ']}';
+            } else {
+                tryFix += '}';
+            }
+
+            try {
+                finalData = JSON.parse(tryFix);
+                success = true;
+                console.log("JSON başarıyla tamir edildi. Ürün sayısı:", finalData.urunler?.length);
+            } catch (fixErr) {
+                // Bu parantez de hatalıymış, bir öncekine bak
+                attempt = attempt.substring(0, attempt.length - 1);
+            }
+        }
+        
+        if (!success) throw new Error("JSON Tamir Edilemedi: " + initialErr.message);
+    }
     
-    // v14.4 - UnitHelper Entegrasyonu: Tüm satırları merkezi fonksiyondan geçir
+    // UnitHelper Entegrasyonu
     if (finalData.urunler && Array.isArray(finalData.urunler)) {
       finalData.urunler = finalData.urunler
         .map(item => unitHelper.parseProduct(item))
-        .filter(item => item !== null); // Boş satırları temizle
+        .filter(item => item !== null);
     }
 
     console.timeEnd("3_JSON_Parse_Islemi");
-
     console.timeEnd("Toplam_Sure");
     res.status(200).json(finalData);
 
   } catch (err) {
-    if (console.timeEnd) {
-        try { console.timeEnd("1_PDF_Hazirlama"); } catch(e) {}
-        try { console.timeEnd("2_Gemini_3.1_Lite_Yanit_Suresi"); } catch(e) {}
-        try { console.timeEnd("Toplam_Sure"); } catch(e) {}
-    }
-    console.error("Vercel Backend Hatası Detay:", err);
+    console.error("Vercel Backend Hatası:", err);
     res.status(500).json({ 
       error: "Analiz Verisi Okunamadı", 
       details: err.message,
-      raw: rawText ? rawText.substring(0, 100) : "No response"
+      raw: rawText ? rawText.substring(Math.max(0, rawText.length - 200)) : "No response"
     });
   }
 };
