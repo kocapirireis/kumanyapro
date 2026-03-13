@@ -7,7 +7,7 @@ module.exports = async (req, res) => {
   const { imageBase64 } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 is required' });
 
-  console.log("--- STRICT JSON MODE (Flash Latest) BAŞLADI ---");
+  console.log("--- ULTRA STRICT JSON (MIME Type) BAŞLADI ---");
   console.time("Toplam_Sure");
 
   try {
@@ -32,8 +32,9 @@ module.exports = async (req, res) => {
     const model = genAI.getGenerativeModel({ 
       model: "gemini-flash-latest",
       generationConfig: {
-        temperature: 0.1, // Sıkı mod için temperature düşürüldü (v13.12)
-        topK: 1
+        temperature: 0.1,
+        topK: 1,
+        responseMimeType: "application/json" // v13.13 - Yanıtın JSON olmasını garantiler
       }
     });
 
@@ -44,21 +45,18 @@ module.exports = async (req, res) => {
           mimeType: "application/pdf"
         }
       },
-      "Return ONLY a raw JSON object. Do not include any conversational text or markdown code blocks. Extract invoice data into 'urunler' array with keys: {urun_adi, miktar, birim}"
+      "Extract all products from this PDF into a JSON array named 'urunler' with keys {urun_adi, miktar, birim}. Do not provide any explanations, just the raw JSON."
     ]);
 
     const response = await result.response;
-    const text = response.text();
+    let text = response.text();
     console.timeEnd("2_Gemini_Flash_Latest_Isteği");
 
     console.time("3_JSON_Temizleme_ve_Parse");
-    // v13.12 - JSON Fixer: Regex ile sadece JSON bloğunu ayıkla
-    let cleanedText = text
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
+    // v13.13 - Regex Temizliği: Baştaki ve sondaki olası gürültüleri temizle
+    let cleanedText = text.trim();
     
-    // En dıştaki { } veya [ ] bloğunu bul
+    // Sadece { ... } veya [ ... ] bloğunu kesin olarak ayıkla
     const jsonMatch = cleanedText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
     const jsonStr = jsonMatch ? jsonMatch[0] : cleanedText;
     
@@ -71,9 +69,8 @@ module.exports = async (req, res) => {
     if (console.timeEnd) try { console.timeEnd("Toplam_Sure"); } catch(e) {}
     console.error("Vercel Backend Hatası:", err);
     res.status(500).json({ 
-      error: "JSON Format Hatası", 
-      details: err.message,
-      rawResponse: typeof text !== 'undefined' ? text.substring(0, 100) : "No Response"
+      error: "JSON Parse Hatası", 
+      details: err.message
     });
   }
 };
