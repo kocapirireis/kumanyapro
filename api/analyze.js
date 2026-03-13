@@ -114,6 +114,43 @@ module.exports = async (req, res) => {
       finalData.urunler = finalData.urunler
         .map(item => unitHelper.parseProduct(item))
         .filter(item => item !== null);
+      
+      // v14.33 - AKILLI İSİM HAFIZASI (ALIAS) ENTEGRASYONU
+      try {
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_KEY;
+        
+        if (supabaseUrl && supabaseKey) {
+          const aliasRes = await fetch(`${supabaseUrl}/rest/v1/urunler?select=ad,alias&alias=not.is.null`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          
+          if (aliasRes.ok) {
+            const urunlerList = await aliasRes.json();
+            if (Array.isArray(urunlerList) && urunlerList.length > 0) {
+              finalData.urunler = finalData.urunler.map(u => {
+                const hamAd = (u.urun_adi || "").toUpperCase().trim();
+                // Alias listesinde bu ismi ara
+                const match = urunlerList.find(dbU => 
+                  dbU.alias && Array.isArray(dbU.alias) && 
+                  dbU.alias.some(a => a.toUpperCase().trim() === hamAd)
+                );
+                
+                if (match) {
+                  console.log(`[Alias Match] ${hamAd} -> ${match.ad}`);
+                  u.gemini_adi = hamAd; // Ham ismi referans için sakla
+                  u.urun_adi = match.ad;
+                } else {
+                  u.gemini_adi = hamAd;
+                }
+                return u;
+              });
+            }
+          }
+        }
+      } catch (aliasErr) {
+        console.warn("Backend Alias eşleştirme hatası (atlanıyor):", aliasErr.message);
+      }
     }
 
     console.timeEnd("3_JSON_Parse_Islemi");
