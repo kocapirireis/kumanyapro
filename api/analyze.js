@@ -7,7 +7,7 @@ module.exports = async (req, res) => {
   const { imageBase64 } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 is required' });
 
-  console.log("--- PERFORMANS TESTI (Flash Latest) BAŞLADI ---");
+  console.log("--- STRICT JSON MODE (Flash Latest) BAŞLADI ---");
   console.time("Toplam_Sure");
 
   try {
@@ -32,8 +32,8 @@ module.exports = async (req, res) => {
     const model = genAI.getGenerativeModel({ 
       model: "gemini-flash-latest",
       generationConfig: {
-        temperature: 1.0,
-        topK: 40
+        temperature: 0.1, // Sıkı mod için temperature düşürüldü (v13.12)
+        topK: 1
       }
     });
 
@@ -44,21 +44,36 @@ module.exports = async (req, res) => {
           mimeType: "application/pdf"
         }
       },
-      "Extract invoice: {urun_adi, miktar, birim}"
+      "Return ONLY a raw JSON object. Do not include any conversational text or markdown code blocks. Extract invoice data into 'urunler' array with keys: {urun_adi, miktar, birim}"
     ]);
 
     const response = await result.response;
     const text = response.text();
     console.timeEnd("2_Gemini_Flash_Latest_Isteği");
 
-    const jsonStr = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/)?.[0] || text;
+    console.time("3_JSON_Temizleme_ve_Parse");
+    // v13.12 - JSON Fixer: Regex ile sadece JSON bloğunu ayıkla
+    let cleanedText = text
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+    
+    // En dıştaki { } veya [ ] bloğunu bul
+    const jsonMatch = cleanedText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    const jsonStr = jsonMatch ? jsonMatch[0] : cleanedText;
+    
     const finalData = JSON.parse(jsonStr);
+    console.timeEnd("3_JSON_Temizleme_ve_Parse");
 
     console.timeEnd("Toplam_Sure");
     res.status(200).json(finalData);
   } catch (err) {
     if (console.timeEnd) try { console.timeEnd("Toplam_Sure"); } catch(e) {}
     console.error("Vercel Backend Hatası:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ 
+      error: "JSON Format Hatası", 
+      details: err.message,
+      rawResponse: typeof text !== 'undefined' ? text.substring(0, 100) : "No Response"
+    });
   }
 };
