@@ -2115,7 +2115,8 @@
                         const stokMap = hesaplaStokMap(hareketlerRes);
                         const urunler = urunlerRes.map(u => ({
                             ad: u.ad, birim: u.birim, miktar: stokMap[u.ad] || 0,
-                            minStok: u.min_stok, kategori: u.kategori, takip: u.takip
+                            minStok: u.min_stok, kategori: u.kategori, takip: u.takip,
+                            alias: u.alias // v14.33
                         }));
                         const sonHareketler = hareketlerRes.slice(-50).reverse().map(r => ({
                             tarih: r.tarih, 
@@ -2211,7 +2212,7 @@
                         });
                     }
 
-                    // ── faturaOku (v13.0 - Vercel Backend) ──
+                    // ── faturaOku (v14.33 - Alias/Eşleştirme Backend'e Taşındı) ──
                     if (islem === 'faturaOku') {
                         const response = await fetch('/api/analyze', {
                             method: 'POST',
@@ -3303,6 +3304,7 @@
                 data-lucide="alert-triangle" style="width:12px; height:12px;"></i> ${urun.uyari}</div>` : ''}
                                     <input type="text"
                                         class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white mb-2 o-ad uppercase"
+                                        data-orijinal="${urun.gemini_adi || urun.urun_adi || ''}"
                                         value="${urun.urun_adi || ''}">
                                         <input type="hidden" class="o-kategori" value="${urun.kategori || 'diger'}">
                                         <input type="hidden" class="o-birim-gizli" value="${urun.birim}">
@@ -3457,6 +3459,29 @@
 
                             const inputFaturaMiktar = li.querySelector('.o-miktar');
                             const inputBirimDetay = li.querySelector('.o-birim-detay');
+
+                            // v14.33 - Akıllı İsim Hafızası (Alias Array) Kaydı
+                            const orijinalAd = (inputAd.getAttribute('data-orijinal') || '').toUpperCase().trim();
+                            const guncelAd = (inputAd.value || '').toUpperCase().trim();
+
+                            if (orijinalAd && guncelAd && orijinalAd !== guncelAd) {
+                                // Mevcut ürünü bul ve alias'ı güncelle
+                                const urun = (window.globalUrunler || []).find(u => u.ad === guncelAd);
+                                if (urun) {
+                                    let currentAliases = Array.isArray(urun.alias) ? urun.alias : [];
+                                    if (!currentAliases.some(a => a.toUpperCase().trim() === orijinalAd)) {
+                                        currentAliases.push(orijinalAd);
+                                        urun.alias = currentAliases; // Local update
+                                        
+                                        // Supabase Update
+                                        sbFetch(`/rest/v1/urunler?ad=eq.${encodeURIComponent(guncelAd)}`, {
+                                            method: 'PATCH',
+                                            body: JSON.stringify({ alias: currentAliases }),
+                                            headers: { 'Prefer': 'return=minimal' }
+                                        }).catch(e => console.warn("Alias kaydedilemedi:", e));
+                                    }
+                                }
+                            }
 
                             selectedItems.push({
                                 ad: urunAd,
