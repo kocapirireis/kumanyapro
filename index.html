@@ -2211,19 +2211,20 @@
                         });
                     }
 
-                    // ── faturaOku ──
+                    // ── faturaOku (v13.0 - Vercel Backend) ──
                     if (islem === 'faturaOku') {
-                        const storedToken = localStorage.getItem('userToken');
-                        const data = { islem: 'faturaOku', token: storedToken, ...payload };
-                        const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                            ...fetchOptions,
-                            body: JSON.stringify(data)
+                        const response = await fetch('/api/analyze', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ imageBase64: payload.imageBase64 }),
+                            signal: controller.signal
                         });
                         clearTimeout(timeoutId);
-                        if (!response.ok) throw new Error('Yapay Zeka servisi yanıt vermedi (HTTP ' + response.status + ')');
-                        const result = await response.json();
-                        if (result.basarili === false) throw new Error(result.hata || 'Analiz basarısız');
-                        return result.veri;
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error('Analiz hatası (HTTP ' + response.status + '): ' + errorText);
+                        }
+                        return await response.json();
                     }
 
                     throw new Error('Bilinmeyen işlem: ' + islem);
