@@ -75,7 +75,21 @@ function normalizeUnit(rawUnit) {
   return highestScore >= 0.8 ? bestMatch : unit;
 }
 
+/**
+ * Bir ürün objesini alır, birimini normalize eder ve temizlenmiş ürün döner.
+ */
+function parseProduct(product) {
+  if (!product) return null;
+  
+  return {
+    ...product,
+    birim: normalizeUnit(product.birim || product.birim_detay),
+    miktar: parseFloat(product.miktar) || 0
+  };
+}
+
 module.exports = {
   normalizeUnit,
+  parseProduct,
   STANDARD_UNITS
 };
