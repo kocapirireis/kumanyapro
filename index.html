@@ -3380,14 +3380,15 @@
                             const inputMiktar = li.querySelector('.o-miktar');
                             const inputBirimDet = li.querySelector('.o-birim-detay');
 
-                            // Başlangıçta mevcut stoku göster
+                            // v14.72 - Otomatik stok doldurma iptal edildi (Kullanıcı talebi: Manuel olacak)
                             let mevcut = 0;
                             if (urun.id && window.currentIdMap) {
                                 mevcut = window.currentIdMap[urun.id] || 0;
                             } else if (window.currentStokMap) {
                                 mevcut = window.currentStokMap[inputAd.value.trim()] || 0;
                             }
-                            if (inputEskiStok) inputEskiStok.value = mevcut;
+                            // Placeholder olarak gösteriyoruz, değer olarak atamıyoruz
+                            if (inputEskiStok) inputEskiStok.placeholder = `Mevcut: ${mevcut}`;
 
                             // v14.66 - İsim değişince stoku otomatik güncelle
                             setupAdListener(li);
@@ -3478,10 +3479,10 @@
                         if (eslesenUrun) {
                             if (inputId) inputId.value = eslesenUrun.id;
                             const mStok = eslesenUrun.miktar || 0;
-                            if (inputEskiStok) inputEskiStok.value = mStok;
+                            if (inputEskiStok) inputEskiStok.placeholder = `Mevcut: ${mStok}`;
                         } else {
-                            if (inputId) inputId.value = ''; // Eşleşme yoksa ID'yi sil (Yeni ürün)
-                            if (inputEskiStok) inputEskiStok.value = 0;
+                            if (inputId) inputId.value = ''; 
+                            if (inputEskiStok) inputEskiStok.placeholder = 'Yeni Ürün';
                         }
 
                         const mevcutStok = inputEskiStok ? parseFloat(inputEskiStok.value) : 0;
