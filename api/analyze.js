@@ -142,11 +142,17 @@ module.exports = async (req, res) => {
             if (Array.isArray(urunlerList)) {
               const normalize = (str) => {
                 if (!str) return "";
-                return str.toString().toUpperCase()
-                  .replace(/[İIı]/g, 'I').replace(/[Şş]/g, 'S')
-                  .replace(/[Çç]/g, 'C').replace(/[Ğğ]/g, 'G')
-                  .replace(/[Üü]/g, 'U').replace(/[Öö]/g, 'O')
-                  .replace(/[^A-Z0-9]/g, ""); 
+                // v14.64 - Birimleri ve sayıları temizle (Örn: "MAKARNA 500GR" -> "MAKARNA")
+                let clean = str.toString().toLowerCase()
+                  .replace(/\d+[\s,.]*\d*\s*(kg|gr|g|l|lt|ml|adet|paket|koli|cl|mt|x)/gi, "")
+                  .replace(/\s+/g, " ").trim();
+                
+                // Türkçe karakterleri normalize et
+                return clean
+                  .replace(/[ıİi]/g, 'i').replace(/[şŞ]/g, 's')
+                  .replace(/[çÇ]/g, 'c').replace(/[ğĞ]/g, 'g')
+                  .replace(/[üÜ]/g, 'u').replace(/[öÖ]/g, 'o')
+                  .replace(/[^a-z0-9]/g, ""); 
               };
 
               finalData.urunler = finalData.urunler.map(u => {
@@ -161,15 +167,23 @@ module.exports = async (req, res) => {
                   if (Array.isArray(dbU.alias)) aliases = dbU.alias;
                   else if (typeof dbU.alias === 'string') aliases = dbU.alias.replace(/[{}]/g, "").split(",").map(s => s.trim());
 
-                  return aliases.some(a => {
+                  const isAliasMatch = aliases.some(a => {
                     const aKey = normalize(a);
                     return aKey && (aKey === keyRaw || aKey === keyCleaned);
                   });
+
+                  if (!isAliasMatch && keyRaw.length > 2) {
+                    // console.log("Hafıza Eşleşmedi:", keyRaw, "DB Aliaslar:", aliases);
+                  }
+                  return isAliasMatch;
                 });
                 
                 if (match) {
                   u.urun_adi = match.ad;
                   u.match_status = "matched";
+                  console.log("Hafıza Eşleşti ✅:", u.gemini_adi, "->", match.ad);
+                } else {
+                  console.log("Hafıza Bulunamadı ❌:", u.gemini_adi, "Aranan Temiz İsim:", keyRaw);
                 }
                 return u;
               });
