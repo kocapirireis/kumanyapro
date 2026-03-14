@@ -3389,7 +3389,7 @@
                                                     <label class="text-xs text-primary font-bold mb-1 block text-center">Toplam Stok</label>
                                                     <input type="text"
                                                         class="bg-dark border border-primary/30 rounded text-sm p-2 w-full text-white text-center o-toplam-stok font-bold"
-                                                        value="${urun.toplam_stok_ai || urun.miktar || ''}">
+                                                        value="${(urun.toplam_stok_ai && !urun.toplam_stok_ai.includes('NaN')) ? urun.toplam_stok_ai : (urun.miktar || '0') + ' ' + (urun.birim || 'ADET')}">
                                                 </div>
                                             </div>
                                             <div style="display:flex;justify-content:center;margin-top:8px;">
@@ -3420,35 +3420,38 @@
                             setupAdListener(li);
 
                             const updateLiveTotal = () => {
-                                let m = parseFloat(inputMiktar.value.replace(',', '.')) || 0;
-                                let b = inputBirimDet.value.toUpperCase().trim();
-                                let mStok = (inputEskiStok && inputEskiStok.value) ? (parseFloat(inputEskiStok.value.replace(',', '.')) || 0) : 0;
-                                
-                                // Sayısal çarpanı ayıkla (Örn: 500GR)
-                                const mMatch = b.match(/^([\d.,]+)\s*(KG|GR|G|L|LT|ML|LU|ADET|PAKET|KOLI)?$/i);
-                                let tot = m;
-                                let unitTag = b || "ADET";
+                                try {
+                                    let m = parseFloat(inputMiktar.value.replace(',', '.')) || 0;
+                                    let b = (inputBirimDet.value || "").toUpperCase().trim();
+                                    let mStok = (inputEskiStok && inputEskiStok.value) ? (parseFloat(inputEskiStok.value.replace(',', '.')) || 0) : 0;
+                                    
+                                    const mMatch = b.match(/^([\d.,]+)\s*(KG|GR|G|L|LT|ML|LU|ADET|PAKET|KOLI)?$/i);
+                                    let tot = m;
+                                    let unitTag = b || "ADET";
 
-                                if (mMatch) {
-                                    let c = parseFloat(mMatch[1].replace(',', '.')) || 1;
-                                    let t = (mMatch[2] || "ADET").toUpperCase();
-                                    tot = m * c;
-                                    unitTag = t;
-                                }
+                                    if (mMatch) {
+                                        let c = parseFloat(mMatch[1].replace(',', '.')) || 1;
+                                        let t = (mMatch[2] || "ADET").toUpperCase();
+                                        tot = m * c;
+                                        unitTag = t;
+                                    }
 
-                                // v14.66 - Toplam = Mevcut Stok + Fatura Miktarı
-                                const finalTotal = mStok + tot;
-                                
-                                if (unitTag === "GR" || unitTag === "G") {
-                                    if (finalTotal >= 1000) inputTotal.value = (Math.round(finalTotal/10)/100) + " KG";
-                                    else inputTotal.value = finalTotal + " GR";
-                                } else if (unitTag === "ML") {
-                                    if (finalTotal >= 1000) inputTotal.value = (Math.round(finalTotal/10)/100) + " L";
-                                    else inputTotal.value = finalTotal + " ML";
-                                } else if (["L","LT","KG"].includes(unitTag)) {
-                                    inputTotal.value = finalTotal + " " + (unitTag === "LT" ? "L" : unitTag);
-                                } else {
-                                    inputTotal.value = finalTotal + " ADET";
+                                    const finalTotal = mStok + tot;
+                                    const safeTotal = isNaN(finalTotal) ? 0 : (Math.round(finalTotal * 100) / 100);
+                                    const safeUnit = (unitTag && unitTag !== "NaN") ? unitTag : "ADET";
+                                    
+                                    if (safeUnit === "GR" || safeUnit === "G") {
+                                        if (safeTotal >= 1000) inputTotal.value = (Math.round(safeTotal/10)/100) + " KG";
+                                        else inputTotal.value = safeTotal + " GR";
+                                    } else if (safeUnit === "ML") {
+                                        if (safeTotal >= 1000) inputTotal.value = (Math.round(safeTotal/10)/100) + " L";
+                                        else inputTotal.value = safeTotal + " ML";
+                                    } else {
+                                        inputTotal.value = safeTotal + " " + safeUnit;
+                                    }
+                                } catch (e) {
+                                    console.error("updateLiveTotal error:", e);
+                                    inputTotal.value = "0 ADET";
                                 }
                             };
 
@@ -3534,12 +3537,36 @@
                             }
                         }
 
+                        const inputBirimDetay = li.querySelector('.o-birim-detay');
                         const mevcutStok = (inputEskiStok && inputEskiStok.value) ? (parseFloat(inputEskiStok.value.replace(',', '.')) || 0) : 0;
                         if (inputFaturaMiktar && inputToplamStok) {
                             const fMiktar = parseFloat(inputFaturaMiktar.value.replace(',', '.')) || 0;
-                            const birimMatch = inputToplamStok.value.match(/[a-zA-Z]+/g);
-                            const birim = (birimMatch && birimMatch[birimMatch.length-1] !== 'NaN') ? birimMatch[birimMatch.length-1] : "ADET";
-                            inputToplamStok.value = (mevcutStok + fMiktar) + " " + birim;
+                            let unitStr = (inputBirimDetay && inputBirimDetay.value) ? inputBirimDetay.value.toUpperCase().trim() : "ADET";
+                            
+                            // Sayısal çarpan varsa ayıkla (Örn: 500GR)
+                            const mMatch = unitStr.match(/^([\d.,]+)\s*(KG|GR|G|L|LT|ML|LU|ADET|PAKET|KOLI)?$/i);
+                            let tot = fMiktar;
+                            let unitTag = unitStr;
+                            if (mMatch) {
+                                let c = parseFloat(mMatch[1].replace(',', '.')) || 1;
+                                let t = (mMatch[2] || "ADET").toUpperCase();
+                                tot = fMiktar * c;
+                                unitTag = t;
+                            }
+
+                            const finalTotal = mevcutStok + tot;
+                            const safeTotal = isNaN(finalTotal) ? 0 : (Math.round(finalTotal * 100) / 100);
+                            const safeUnit = (unitTag && unitTag !== "NaN") ? unitTag : "ADET";
+                            
+                            if (safeUnit === "GR" || safeUnit === "G") {
+                                if (safeTotal >= 1000) inputToplamStok.value = (Math.round(safeTotal/10)/100) + " KG";
+                                else inputToplamStok.value = safeTotal + " GR";
+                            } else if (safeUnit === "ML") {
+                                if (safeTotal >= 1000) inputToplamStok.value = (Math.round(safeTotal/10)/100) + " L";
+                                else inputToplamStok.value = safeTotal + " ML";
+                            } else {
+                                inputToplamStok.value = safeTotal + " " + safeUnit;
+                            }
                         }
                     });
                 }
