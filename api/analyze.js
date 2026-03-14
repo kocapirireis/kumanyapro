@@ -159,31 +159,31 @@ module.exports = async (req, res) => {
                 const keyRaw = normalize(u.gemini_adi);
                 const keyCleaned = normalize(u.urun_adi);
 
+                // PostgreSQL ANY(alias) mantığına uygun istemci taraflı arama
                 const match = urunlerList.find(dbU => {
-                  const dbKey = normalize(dbU.ad);
-                  if (dbKey && (dbKey === keyRaw || dbKey === keyCleaned)) return true;
+                  const dbAdKey = normalize(dbU.ad);
+                  // 1. Kendi adıyla eşleşiyor mu?
+                  if (dbAdKey && (dbAdKey === keyRaw || dbAdKey === keyCleaned)) return true;
                   
+                  // 2. Alias dizisinin herhangi bir elemanıyla eşleşiyor mu?
                   let aliases = [];
                   if (Array.isArray(dbU.alias)) aliases = dbU.alias;
                   else if (typeof dbU.alias === 'string') aliases = dbU.alias.replace(/[{}]/g, "").split(",").map(s => s.trim());
 
-                  const isAliasMatch = aliases.some(a => {
-                    const aKey = normalize(a);
+                  return aliases.some(a => {
+                    const aKey = normalize(a.trim());
                     return aKey && (aKey === keyRaw || aKey === keyCleaned);
                   });
-
-                  if (!isAliasMatch && keyRaw.length > 2) {
-                    // console.log("Hafıza Eşleşmedi:", keyRaw, "DB Aliaslar:", aliases);
-                  }
-                  return isAliasMatch;
                 });
                 
                 if (match) {
-                  u.urun_adi = match.ad;
+                  // MÜKERRER KAYDI ENGELLE: Mevcut ürünün orijinal adını kullan
+                  u.urun_adi = match.ad; 
                   u.match_status = "matched";
-                  console.log("Hafıza Eşleşti ✅:", u.gemini_adi, "->", match.ad);
+                  console.log("Hafıza Eşleşti (Mevcut Satır) ✅:", u.gemini_adi, "->", match.ad);
                 } else {
-                  console.log("Hafıza Bulunamadı ❌:", u.gemini_adi, "Aranan Temiz İsim:", keyRaw);
+                  u.match_status = "new";
+                  console.log("Hafıza Bulunamadı (Yeni Ürün Adayı) ❌:", u.gemini_adi);
                 }
                 return u;
               });
