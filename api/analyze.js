@@ -142,9 +142,11 @@ module.exports = async (req, res) => {
             if (Array.isArray(urunlerList)) {
               const normalize = (str) => {
                 if (!str) return "";
-                // v14.64 - Birimleri ve sayıları temizle (Örn: "MAKARNA 500GR" -> "MAKARNA")
+                // v14.66 - Daha Agresif Birim Temizliği
                 let clean = str.toString().toLowerCase()
-                  .replace(/\d+[\s,.]*\d*\s*(kg|gr|g|l|lt|ml|adet|paket|koli|cl|mt|x)/gi, "")
+                  .replace(/(\d+[.,]?\d*)\s*(kg|gr|gm|g|l|lt|ml|adet|paket|koli|cl|mt|x|gr\.|kg\.)/gi, "")
+                  .replace(/\s*\d+\s*(gr|kg|ml|lt|l|g| adet| paket| koli)\b/gi, "")
+                  .replace(/\(\d+.*\)/g, "") // Parantez içindeki gramajları sil (500gr) gibi
                   .replace(/\s+/g, " ").trim();
                 
                 // Türkçe karakterleri normalize et
