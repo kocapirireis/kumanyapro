@@ -3537,6 +3537,15 @@
                             let miktarVal = parseFloat(miktarStr);
                             let birimVal = match[2].trim() || 'Adet';
 
+                            // v14.71 - KRİTİK DÜZELTME: Stoka eklerken 'Toplam Stok' değerini değil,
+                            // sadece 'Fatura Miktarı' (artış miktarı) bilgisini gönderiyoruz.
+                            // Aksi halde sistem: Mevcut Stok + (Mevcut + Yeni) şeklinde mükerrer toplama yapıyor.
+                            const inputFaturaMiktar = li.querySelector('.o-miktar');
+                            const inputBirimDetay = li.querySelector('.o-birim-detay');
+                            
+                            let artisMiktari = inputFaturaMiktar ? parseFloat(inputFaturaMiktar.value.replace(',', '.')) : miktarVal;
+                            if (isNaN(artisMiktari)) artisMiktari = 0;
+
                             // Birim Standartlaştırma
                             let harfKismi = birimVal.toLowerCase();
                             if (harfKismi === 'l') birimVal = 'L';
@@ -3549,9 +3558,6 @@
                             const kategoriVal = kategoriInput ? (kategoriInput.value || 'diger') : 'diger';
                             const eskiStokRaw = inputEskiStok ? inputEskiStok.value : "";
                             const eskiStokVal = (eskiStokRaw !== "") ? parseFloat(eskiStokRaw.replace(',', '.')) : undefined;
-
-                            const inputFaturaMiktar = li.querySelector('.o-miktar');
-                            const inputBirimDetay = li.querySelector('.o-birim-detay');
 
                             // v14.33 - Akıllı İsim Hafızası (Alias Array) Kaydı
                             const hamGeminiAdi = (inputAd.getAttribute('data-orijinal') || '').trim();
@@ -3567,8 +3573,8 @@
                             selectedItems.push({
                                  id: li.querySelector('.o-id') ? li.querySelector('.o-id').value : '',
                                  ad: urunAd,
-                                 miktar: isNaN(miktarVal) ? 0 : miktarVal,
-                                 toplam_stok: isNaN(miktarVal) ? 0 : miktarVal,
+                                 miktar: artisMiktari,
+                                 toplam_stok: artisMiktari,
                                  birim: birimVal,
                                  kategori: kategoriVal,
                                  fatura_miktar: inputFaturaMiktar ? parseFloat(inputFaturaMiktar.value.replace(',', '.')) : 0,
