@@ -2027,6 +2027,31 @@
             }, duration);
         }
 
+        // v14.74 - Gelişmiş Eşleştirme Sistemi (Backend ile Senkron)
+        function normalizeAd(ad) {
+            if (!ad) return "";
+            let clean = String(ad).toUpperCase()
+                .replace(/(\d+[.,]?\d*)\s*(KG|GR|GM|G|L|LT|ML|ADET|PAKET|KOLI|CL|MT|X|GR\.|KG\.)/gi, "")
+                .replace(/\s*\d+\s*(GR|KG|ML|LT|L|G| ADET| PAKET| KOLI)\b/gi, "")
+                .replace(/\(\d+.*\)/g, "")
+                .replace(/\s+/g, " ").trim();
+            
+            return clean
+                .replace(/[İIı]/g, 'I').replace(/[Şş]/g, 'S')
+                .replace(/[Çç]/g, 'C').replace(/[Ğğ]/g, 'G')
+                .replace(/[Üü]/g, 'U').replace(/[Öö]/g, 'O')
+                .replace(/[^A-Z0-9]/g, "")
+                .trim(); 
+        }
+
+        function urunEslestir(a, b) {
+            const na = normalizeAd(a), nb = normalizeAd(b);
+            if (!na || !nb) return false;
+            if (na === nb) return true;
+            if (na.length <= 3 || nb.length <= 3) return na === nb;
+            return na.startsWith(nb) || nb.startsWith(na);
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             // --- API ENTEGRASYONU ---
             // ── Supabase Bağlantısı ──
@@ -2614,28 +2639,29 @@
                     const criticalContainer = document.getElementById('critical-items-container');
 
                     // v14.40 - Analiz verisini alırken hata olsa dahi UI çökmeyecek
-                    try {
-                        const analizData = await apiCall('analizHesapla');
-                        const lifeLimitedItems = analizData.filter(a => parseFloat(a.kacAyYeter) < 1);
+                try {
+                    const analizData = await apiCall('analizHesapla');
+                    const lifeLimitedItems = analizData.filter(a => (a.kacAyYeterRaw !== undefined ? a.kacAyYeterRaw : parseFloat(a.kacAyYeter)) < 1);
 
-                        // Ortalama Stok Ömrü Hesabı
-                        const tuketimliUrunler = analizData.filter(a => parseFloat(a.aylikTuketim) > 0 && a.takip);
-                        if (tuketimliUrunler.length > 0) {
-                            const totalLife = tuketimliUrunler.reduce((sum, a) => sum + (parseFloat(a.kacAyYeter) || 0), 0);
-                            const avgLifeMonths = totalLife / tuketimliUrunler.length;
-                            const avgDaysDisplay = document.getElementById('avg-days');
-                            if (avgDaysDisplay) {
-                                if (avgLifeMonths >= 12) avgDaysDisplay.innerHTML = `${(avgLifeMonths / 12).toFixed(1)} <span class="text-xs font-normal">Yıl</span>`;
-                                else avgDaysDisplay.innerHTML = `${(avgLifeMonths * 30).toFixed(0)} <span class="text-xs font-normal">Gün</span>`;
-                            }
+                    // Ortalama Stok Ömrü Hesabı
+                    const tuketimliUrunler = analizData.filter(a => parseFloat(a.aylikTuketim || a.aylikOrtalama) > 0 && a.takip !== false);
+                    if (tuketimliUrunler.length > 0) {
+                        const totalLife = tuketimliUrunler.reduce((sum, a) => sum + (parseFloat(a.kacAyYeterRaw !== undefined ? a.kacAyYeterRaw : a.kacAyYeter) || 0), 0);
+                        const avgLifeMonths = totalLife / tuketimliUrunler.length;
+                        const avgDaysDisplay = document.getElementById('avg-days');
+                        if (avgDaysDisplay) {
+                            if (avgLifeMonths >= 12) avgDaysDisplay.innerHTML = `${(avgLifeMonths / 12).toFixed(1)} <span class="text-xs font-normal">Yıl</span>`;
+                            else avgDaysDisplay.innerHTML = `${(avgLifeMonths * 30).toFixed(0)} <span class="text-xs font-normal">Gün</span>`;
                         }
+                    }
 
-                        if (criticalSection && criticalContainer) {
-                            if (lifeLimitedItems.length > 0) {
-                                criticalSection.classList.remove('hidden');
-                                criticalContainer.innerHTML = lifeLimitedItems.map(item => {
-                                    const gun = Math.round(parseFloat(item.kacAyYeter) * 30);
-                                    const surLabel = parseFloat(item.kacAyYeter) >= 12 ? `${(parseFloat(item.kacAyYeter)/12).toFixed(1)} yıl` : `${gun} gün`;
+                    if (criticalSection && criticalContainer) {
+                        if (lifeLimitedItems.length > 0) {
+                            criticalSection.classList.remove('hidden');
+                            criticalContainer.innerHTML = lifeLimitedItems.map(item => {
+                                const valRaw = (item.kacAyYeterRaw !== undefined ? item.kacAyYeterRaw : parseFloat(item.kacAyYeter));
+                                const gun = Math.round(valRaw * 30);
+                                const surLabel = valRaw >= 12 ? `${(valRaw/12).toFixed(1)} yıl` : (gun < 1 ? "Bitti" : `${gun} gün`);
                                     return `
                                     <div class="glass flex justify-between items-center" style="border-left: 4px solid var(--danger); margin-bottom: 10px; border-radius: 12px; border-top-left-radius: 4px; border-bottom-left-radius: 4px; padding: 12px 16px;">
                                         <div style="display:flex; flex-direction:column; gap:4px;">
@@ -3334,9 +3360,9 @@
                                         data-orijinal="${urun.gemini_adi || urun.urun_adi || ''}"
                                         value="${urun.urun_adi || ''}">
                                     <input type="hidden" class="o-id" value="${urun.id || ''}">
-                                    <div class="text-[10px] mb-2 px-1 italic flex items-center gap-1 ${urun.match_status === 'matched' ? 'text-success' : 'text-muted'}">
+                                    <div class="o-status-container text-[10px] mb-2 px-1 italic flex items-center gap-1 ${urun.match_status === 'matched' ? 'text-success' : 'text-muted'}" data-gemini-ad="${urun.gemini_adi || ''}">
                                         <i data-lucide="${urun.match_status === 'matched' ? 'check-circle' : 'help-circle'}" style="width:10px; height:10px;"></i>
-                                        ${urun.match_status === 'matched' ? '✅ HAFIZADAN GELDİ' : '❓ TANINMADI'} : ${urun.gemini_adi || 'Bilinmiyor'}
+                                        <span>${urun.match_status === 'matched' ? '✅ HAFIZADAN GELDİ' : '❓ TANINMADI'} : ${urun.gemini_adi || 'Bilinmiyor'}</span>
                                     </div>
                                     <input type="hidden" class="o-kategori" value="${urun.kategori || 'diger'}">
                                     <input type="hidden" class="o-birim-gizli" value="${urun.birim}">
@@ -3462,10 +3488,11 @@
                 if (sonTarananlarHeader) sonTarananlarHeader.classList.remove('hidden');
             }
 
-            // v14.66/67 - İsim değişince stoku ve ID'yi otomatik güncelle
+            // v14.74 - İsim değişince stoku, ID'yi ve kategoriyi otomatik güncelle
             const setupAdListener = (li) => {
                 const inputAd = li.querySelector('.o-ad');
-                const inputId = li.querySelector('.o-id'); // v14.67
+                const inputId = li.querySelector('.o-id');
+                const inputKategori = li.querySelector('.o-kategori');
                 const inputEskiStok = li.querySelector('.o-eski-stok');
                 const inputToplamStok = li.querySelector('.o-toplam-stok');
                 const inputFaturaMiktar = li.querySelector('.o-miktar');
@@ -3473,21 +3500,41 @@
                 if (inputAd) {
                     inputAd.addEventListener('input', () => {
                         const yeniAd = inputAd.value.trim().toUpperCase();
+                        const statusCont = li.querySelector('.o-status-container');
+                        const geminiAd = statusCont ? statusCont.getAttribute('data-gemini-ad') : '';
                         
-                        // v14.67 - İsme göre ürünü bul ve ID'yi güncelle
-                        const eslesenUrun = window.globalUrunler ? window.globalUrunler.find(u => u.ad.toUpperCase() === yeniAd) : null;
+                        // v14.74 - Gelişmiş akıllı eşleştirme (Backend ile uyumlu)
+                        const eslesenUrun = window.globalUrunler ? window.globalUrunler.find(u => urunEslestir(u.ad, yeniAd)) : null;
+                        
                         if (eslesenUrun) {
                             if (inputId) inputId.value = eslesenUrun.id;
+                            if (inputKategori) inputKategori.value = eslesenUrun.kategori || 'diger';
                             const mStok = eslesenUrun.miktar || 0;
                             if (inputEskiStok) inputEskiStok.placeholder = `Mevcut: ${mStok}`;
+
+                            if (statusCont) {
+                                statusCont.className = 'o-status-container text-[10px] mb-2 px-1 italic flex items-center gap-1 text-success';
+                                statusCont.innerHTML = `
+                                    <i data-lucide="check-circle" style="width:10px; height:10px;"></i>
+                                    <span>✅ HAFIZADAN GELDİ : ${geminiAd || 'Manuel'}</span>
+                                `;
+                                lucide.createIcons();
+                            }
                         } else {
                             if (inputId) inputId.value = ''; 
                             if (inputEskiStok) inputEskiStok.placeholder = 'Yeni Ürün';
+                            
+                            if (statusCont) {
+                                statusCont.className = 'o-status-container text-[10px] mb-2 px-1 italic flex items-center gap-1 text-muted';
+                                statusCont.innerHTML = `
+                                    <i data-lucide="help-circle" style="width:10px; height:10px;"></i>
+                                    <span>❓ TANINMADI : ${geminiAd || 'Manuel'}</span>
+                                `;
+                                lucide.createIcons();
+                            }
                         }
 
                         const mevcutStok = (inputEskiStok && inputEskiStok.value) ? (parseFloat(inputEskiStok.value.replace(',', '.')) || 0) : 0;
-                        
-                        // Toplamı güncelle: Mevcut + Faturadaki
                         if (inputFaturaMiktar && inputToplamStok) {
                             const fMiktar = parseFloat(inputFaturaMiktar.value.replace(',', '.')) || 0;
                             const birimMatch = inputToplamStok.value.match(/[a-zA-Z]+/g);
