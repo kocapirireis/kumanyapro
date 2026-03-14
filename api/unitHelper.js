@@ -122,14 +122,16 @@ function parseProduct(product) {
   let finalName = cleanProductName(product.urun_adi);
 
   // 4. TOPLAM STOK HESAPLAMA
-  let calculatedMiktar = miktar;
-  let calculatedBirim = finalBirim;
+  let calculatedMiktar = (isNaN(miktar) || miktar === null) ? 0 : miktar;
+  let calculatedBirim = finalBirim || "ADET";
 
-  const mMatch = finalBirim.match(/^([\d.,]+)\s*(KG|GR|G|L|LT|ML|LU|LI|ADET)?$/i);
+  const mMatch = calculatedBirim.match(/^([\d.,]+)\s*(KG|GR|G|L|LT|ML|LU|LI|ADET)?$/i);
   if (mMatch) {
     let carpan = parseFloat(mMatch[1].replace(",", ".")) || 1;
     let tag = (mMatch[2] || "ADET").toUpperCase();
-    let total = miktar * carpan;
+    let total = calculatedMiktar * carpan;
+    
+    if (isNaN(total)) total = calculatedMiktar;
     
     if (tag === "GR" || tag === "G") {
       if (total >= 1000) { calculatedMiktar = Math.round(total/10)/100; calculatedBirim = "KG"; }
@@ -144,12 +146,16 @@ function parseProduct(product) {
     }
   }
 
+  // Final NaN Protection
+  if (isNaN(calculatedMiktar)) calculatedMiktar = 0;
+  if (calculatedBirim === "NaN" || !calculatedBirim) calculatedBirim = "ADET";
+
   return {
     ...product,
-    urun_adi: finalName, 
-    miktar: miktar,
-    birim: finalBirim,
-    birim_detay: finalBirim,
+    urun_adi: finalName || "Bilinmeyen Ürün", 
+    miktar: isNaN(miktar) ? 0 : miktar,
+    birim: finalBirim || "ADET",
+    birim_detay: finalBirim || "ADET",
     toplam_stok_ai: `${calculatedMiktar} ${calculatedBirim}`
   };
 }
