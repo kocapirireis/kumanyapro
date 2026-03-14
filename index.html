@@ -3396,7 +3396,7 @@
                             const updateLiveTotal = () => {
                                 let m = parseFloat(inputMiktar.value.replace(',', '.')) || 0;
                                 let b = inputBirimDet.value.toUpperCase().trim();
-                                let mStok = parseFloat(inputEskiStok.value) || 0;
+                                let mStok = (inputEskiStok && inputEskiStok.value) ? (parseFloat(inputEskiStok.value.replace(',', '.')) || 0) : 0;
                                 
                                 // Sayısal çarpanı ayıkla (Örn: 500GR)
                                 const mMatch = b.match(/^([\d.,]+)\s*(KG|GR|G|L|LT|ML|LU|ADET|PAKET|KOLI)?$/i);
@@ -3485,13 +3485,13 @@
                             if (inputEskiStok) inputEskiStok.placeholder = 'Yeni Ürün';
                         }
 
-                        const mevcutStok = inputEskiStok ? parseFloat(inputEskiStok.value) : 0;
+                        const mevcutStok = (inputEskiStok && inputEskiStok.value) ? (parseFloat(inputEskiStok.value.replace(',', '.')) || 0) : 0;
                         
                         // Toplamı güncelle: Mevcut + Faturadaki
                         if (inputFaturaMiktar && inputToplamStok) {
                             const fMiktar = parseFloat(inputFaturaMiktar.value.replace(',', '.')) || 0;
-                            const birimMatch = inputToplamStok.value.match(/[a-zA-Z]+/);
-                            const birim = birimMatch ? birimMatch[0] : "ADET";
+                            const birimMatch = inputToplamStok.value.match(/[a-zA-Z]+/g);
+                            const birim = (birimMatch && birimMatch[birimMatch.length-1] !== 'NaN') ? birimMatch[birimMatch.length-1] : "ADET";
                             inputToplamStok.value = (mevcutStok + fMiktar) + " " + birim;
                         }
                     });
