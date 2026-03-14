@@ -140,22 +140,23 @@ module.exports = async (req, res) => {
           if (aliasRes.ok) {
             const urunlerList = await aliasRes.json();
             if (Array.isArray(urunlerList)) {
-              const normalize = (str) => {
-                if (!str) return "";
-                // v14.66 - Daha Agresif Birim Temizliği
-                let clean = str.toString().toLowerCase()
-                  .replace(/(\d+[.,]?\d*)\s*(kg|gr|gm|g|l|lt|ml|adet|paket|koli|cl|mt|x|gr\.|kg\.)/gi, "")
-                  .replace(/\s*\d+\s*(gr|kg|ml|lt|l|g| adet| paket| koli)\b/gi, "")
-                  .replace(/\(\d+.*\)/g, "") // Parantez içindeki gramajları sil (500gr) gibi
-                  .replace(/\s+/g, " ").trim();
-                
-                // Türkçe karakterleri normalize et
-                return clean
-                  .replace(/[ıİi]/g, 'i').replace(/[şŞ]/g, 's')
-                  .replace(/[çÇ]/g, 'c').replace(/[ğĞ]/g, 'g')
-                  .replace(/[üÜ]/g, 'u').replace(/[öÖ]/g, 'o')
-                  .replace(/[^a-z0-9]/g, ""); 
-              };
+                // v14.70 - Apps Script normalizeAd ile Senkronize Normalizasyon
+                const normalize = (str) => {
+                  if (!str) return "";
+                  // Önce birimleri ve gereksiz ekleri temizle
+                  let clean = str.toString().toUpperCase()
+                    .replace(/(\d+[.,]?\d*)\s*(KG|GR|GM|G|L|LT|ML|ADET|PAKET|KOLI|CL|MT|X|GR\.|KG\.)/gi, "")
+                    .replace(/\s*\d+\s*(GR|KG|ML|LT|L|G| ADET| PAKET| KOLI)\b/gi, "")
+                    .replace(/\(\d+.*\)/g, "")
+                    .replace(/\s+/g, " ").trim();
+                  
+                  // Türkçe karakterleri ve boşlukları Apps Script (Utils.gs) mantığıyla normalize et
+                  return clean
+                    .replace(/[İIı]/g, 'I').replace(/[Şş]/g, 'S')
+                    .replace(/[Çç]/g, 'C').replace(/[Ğğ]/g, 'G')
+                    .replace(/[Üü]/g, 'U').replace(/[Öö]/g, 'O')
+                    .replace(/[^A-Z0-9]/g, ""); 
+                };
 
               finalData.urunler = finalData.urunler.map(u => {
                 const keyRaw = normalize(u.gemini_adi);
@@ -185,10 +186,10 @@ module.exports = async (req, res) => {
                   u.id = match.id;
                   u.urun_adi = match.ad; 
                   u.match_status = "matched";
-                  console.log("Hafıza Eşleşti (ID: " + match.id + ") ✅:", u.gemini_adi, "->", match.ad);
+                  console.log(`[Hafıza Match] ${u.gemini_adi} -> ${match.ad} (ID: ${match.id}) ✅`);
                 } else {
                   u.match_status = "new";
-                  console.log("Hafıza Bulunamadı (Yeni Ürün Adayı) ❌:", u.gemini_adi);
+                  console.log(`[Yeni Ürün] ${u.gemini_adi} (Eşleşme Bulunamadı) ❓`);
                 }
                 return u;
               });
