@@ -3527,7 +3527,9 @@
                             teslimatKalanlari: [] 
                         });
                         
-                        if (response === true) {
+                        console.log("StokEkle Yanıtı:", response);
+
+                        if (response === true || (response && response.success)) {
                             showToast("Ürünler stoka başarıyla eklendi!");
                             document.querySelector('.scanned-items').classList.add('hidden');
                             // v14.39 - Otomatik UI Güncelleme
