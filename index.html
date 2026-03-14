@@ -2592,8 +2592,10 @@
 
                     // v14.66 - Global stok haritasını güncelliyoruz (İsim değişikliklerinde hızlı erişim için)
                     window.currentStokMap = {};
+                    window.currentIdMap = {}; // v14.67 - ID bazlı stok erişimi
                     (data.urunler || []).forEach(u => {
                         window.currentStokMap[u.ad] = u.miktar || 0;
+                        if (u.id) window.currentIdMap[u.id] = u.miktar || 0;
                     });
 
                     // Ana Sayfa Özetlerini Güncelle
@@ -3331,6 +3333,7 @@
                                         class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white mb-1 o-ad uppercase"
                                         data-orijinal="${urun.gemini_adi || urun.urun_adi || ''}"
                                         value="${urun.urun_adi || ''}">
+                                    <input type="hidden" class="o-id" value="${urun.id || ''}">
                                     <div class="text-[10px] mb-2 px-1 italic flex items-center gap-1 ${urun.match_status === 'matched' ? 'text-success' : 'text-muted'}">
                                         <i data-lucide="${urun.match_status === 'matched' ? 'check-circle' : 'help-circle'}" style="width:10px; height:10px;"></i>
                                         ${urun.match_status === 'matched' ? '✅ HAFIZADAN GELDİ' : '❓ TANINMADI'} : ${urun.gemini_adi || 'Bilinmiyor'}
@@ -3378,7 +3381,12 @@
                             const inputBirimDet = li.querySelector('.o-birim-detay');
 
                             // Başlangıçta mevcut stoku göster
-                            const mevcut = window.currentStokMap ? (window.currentStokMap[inputAd.value.trim()] || 0) : 0;
+                            let mevcut = 0;
+                            if (urun.id && window.currentIdMap) {
+                                mevcut = window.currentIdMap[urun.id] || 0;
+                            } else if (window.currentStokMap) {
+                                mevcut = window.currentStokMap[inputAd.value.trim()] || 0;
+                            }
                             if (inputEskiStok) inputEskiStok.value = mevcut;
 
                             // v14.66 - İsim değişince stoku otomatik güncelle
@@ -3453,24 +3461,36 @@
                 if (sonTarananlarHeader) sonTarananlarHeader.classList.remove('hidden');
             }
 
-            // v14.66 - İsim değişince stoku otomatik güncelle
+            // v14.66/67 - İsim değişince stoku ve ID'yi otomatik güncelle
             const setupAdListener = (li) => {
                 const inputAd = li.querySelector('.o-ad');
+                const inputId = li.querySelector('.o-id'); // v14.67
                 const inputEskiStok = li.querySelector('.o-eski-stok');
                 const inputToplamStok = li.querySelector('.o-toplam-stok');
                 const inputFaturaMiktar = li.querySelector('.o-miktar');
 
                 if (inputAd) {
                     inputAd.addEventListener('input', () => {
-                        const yeniAd = inputAd.value.trim();
-                        // Global stokMap üzerinden mevcut stoku bulalım
-                        const mevcutStok = window.currentStokMap ? (window.currentStokMap[yeniAd] || 0) : 0;
-                        if (inputEskiStok) inputEskiStok.value = mevcutStok;
+                        const yeniAd = inputAd.value.trim().toUpperCase();
+                        
+                        // v14.67 - İsme göre ürünü bul ve ID'yi güncelle
+                        const eslesenUrun = window.globalUrunler ? window.globalUrunler.find(u => u.ad.toUpperCase() === yeniAd) : null;
+                        if (eslesenUrun) {
+                            if (inputId) inputId.value = eslesenUrun.id;
+                            const mStok = eslesenUrun.miktar || 0;
+                            if (inputEskiStok) inputEskiStok.value = mStok;
+                        } else {
+                            if (inputId) inputId.value = ''; // Eşleşme yoksa ID'yi sil (Yeni ürün)
+                            if (inputEskiStok) inputEskiStok.value = 0;
+                        }
+
+                        const mevcutStok = inputEskiStok ? parseFloat(inputEskiStok.value) : 0;
                         
                         // Toplamı güncelle: Mevcut + Faturadaki
                         if (inputFaturaMiktar && inputToplamStok) {
                             const fMiktar = parseFloat(inputFaturaMiktar.value.replace(',', '.')) || 0;
-                            const birim = (inputToplamStok.value.match(/[a-zA-Z]+/) || [""])[0];
+                            const birimMatch = inputToplamStok.value.match(/[a-zA-Z]+/);
+                            const birim = birimMatch ? birimMatch[0] : "ADET";
                             inputToplamStok.value = (mevcutStok + fMiktar) + " " + birim;
                         }
                     });
@@ -3545,16 +3565,17 @@
                             }
 
                             selectedItems.push({
-                                ad: urunAd,
-                                miktar: isNaN(miktarVal) ? 0 : miktarVal,
-                                toplam_stok: isNaN(miktarVal) ? 0 : miktarVal,
-                                birim: birimVal,
-                                kategori: kategoriVal,
-                                fatura_miktar: inputFaturaMiktar ? parseFloat(inputFaturaMiktar.value.replace(',', '.')) : 0,
-                                birim_detay: inputBirimDetay ? inputBirimDetay.value : '',
-                                notlar: 'Fatura Girişi',
-                                eslestirilen_alias: aliasAd,
-                                eskiStok: (eskiStokVal !== undefined && !isNaN(eskiStokVal)) ? eskiStokVal : undefined
+                                 id: li.querySelector('.o-id') ? li.querySelector('.o-id').value : '',
+                                 ad: urunAd,
+                                 miktar: isNaN(miktarVal) ? 0 : miktarVal,
+                                 toplam_stok: isNaN(miktarVal) ? 0 : miktarVal,
+                                 birim: birimVal,
+                                 kategori: kategoriVal,
+                                 fatura_miktar: inputFaturaMiktar ? parseFloat(inputFaturaMiktar.value.replace(',', '.')) : 0,
+                                 birim_detay: inputBirimDetay ? inputBirimDetay.value : '',
+                                 notlar: 'Fatura Girişi',
+                                 eslestirilen_alias: aliasAd,
+                                 eskiStok: (eskiStokVal !== undefined && !isNaN(eskiStokVal)) ? eskiStokVal : undefined
                             });
                         }
                     });
