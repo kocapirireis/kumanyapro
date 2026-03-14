@@ -133,52 +133,53 @@ module.exports = async (req, res) => {
         });
 
         if (supabaseUrl && supabaseKey) {
-          const aliasRes = await fetch(`${supabaseUrl}/rest/v1/urunler?select=id,ad,alias&limit=5000`, {
+          const aliasRes = await fetch(`${supabaseUrl}/rest/v1/urunler?select=id,ad,alias,kategori&limit=5000`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
           
           if (aliasRes.ok) {
             const urunlerList = await aliasRes.json();
             if (Array.isArray(urunlerList)) {
-                // v14.70 - Apps Script normalizeAd ile Senkronize Normalizasyon
+                // v14.74 - Apps Script normalizeAd ile TAM Senkronize Normalizasyon
                 const normalize = (str) => {
                   if (!str) return "";
-                  // Önce birimleri ve gereksiz ekleri temizle
                   let clean = str.toString().toUpperCase()
                     .replace(/(\d+[.,]?\d*)\s*(KG|GR|GM|G|L|LT|ML|ADET|PAKET|KOLI|CL|MT|X|GR\.|KG\.)/gi, "")
                     .replace(/\s*\d+\s*(GR|KG|ML|LT|L|G| ADET| PAKET| KOLI)\b/gi, "")
                     .replace(/\(\d+.*\)/g, "")
                     .replace(/\s+/g, " ").trim();
                   
-                  // Türkçe karakterleri ve boşlukları Apps Script (Utils.gs) mantığıyla normalize et
                   return clean
                     .replace(/[İIı]/g, 'I').replace(/[Şş]/g, 'S')
                     .replace(/[Çç]/g, 'C').replace(/[Ğğ]/g, 'G')
                     .replace(/[Üü]/g, 'U').replace(/[Öö]/g, 'O')
-                    .replace(/[^A-Z0-9]/g, ""); 
+                    .replace(/[^A-Z0-9]/g, "")
+                    .trim(); 
+                };
+
+                const isMatched = (a, b) => {
+                  const na = normalize(a), nb = normalize(b);
+                  if (!na || !nb) return false;
+                  if (na === nb) return true;
+                  if (na.length <= 3 || nb.length <= 3) return na === nb;
+                  return na.startsWith(nb) || nb.startsWith(na);
                 };
 
               finalData.urunler = finalData.urunler.map(u => {
-                const keyRaw = normalize(u.gemini_adi);
-                const keyCleaned = normalize(u.urun_adi);
+                const geminiAd = u.gemini_adi;
+                const urunAd = u.urun_adi;
 
-                // PostgreSQL ANY(alias) mantığına uygun istemci taraflı arama
-                // v14.67 - Alias Öncelikli ve ID bazlı eşleşme
                 const match = urunlerList.find(dbU => {
-                  // 1. Önce Alias dizisinin herhangi bir elemanıyla eşleşiyor mu? (Öncelikli)
+                  // 1. Alias kontrolü
                   let aliases = [];
                   if (Array.isArray(dbU.alias)) aliases = dbU.alias;
                   else if (typeof dbU.alias === 'string') aliases = dbU.alias.replace(/[{}]/g, "").split(",").map(s => s.trim());
 
-                  const isAliasMatch = aliases.some(a => {
-                    const aKey = normalize(a.trim());
-                    return aKey && (aKey === keyRaw || aKey === keyCleaned);
-                  });
-                  if (isAliasMatch) return true;
+                  const hasAliasMatch = aliases.some(a => isMatched(a, geminiAd) || isMatched(a, urunAd));
+                  if (hasAliasMatch) return true;
 
-                  // 2. Kendi adıyla eşleşiyor mu?
-                  const dbAdKey = normalize(dbU.ad);
-                  return dbAdKey && (dbAdKey === keyRaw || dbAdKey === keyCleaned);
+                  // 2. Kendi ismiyle eşleşme
+                  return isMatched(dbU.ad, geminiAd) || isMatched(dbU.ad, urunAd);
                 });
                 
                 if (match) {
