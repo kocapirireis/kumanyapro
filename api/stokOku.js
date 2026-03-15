@@ -17,23 +17,11 @@ export default async function handler(req, res) {
             ad: u.ad || 'İsimsiz Ürün',
             birim: u.birim || '',
             miktar: stokMap[u.ad] || 0,
-            minStok: u.min_stok || u.minStok || 0,
-            kategori: u.kategori || 'diger',
             takip: (u.takip === 'EVET' || u.takip === true),
-            alias: u.alias || []
+            kategori: u.kategori || 'Diğer'
         }));
         
-        const sonHareketler = hareketlerRes.slice(-50).reverse().map(r => ({
-            tarih: r.tarih,
-            urunAdi: r.urun_adi,
-            miktar: parseFloat(r.toplam_stok || r.miktar || 0),
-            birim: r.birim,
-            tip: r.tip,
-            not: r.notlar || r.not || '',
-            id: r.id
-        }));
-        
-        return res.status(200).json({ basarili: true, veri: { urunler, sonHareketler } });
+        return res.status(200).json({ basarili: true, veri: urunler });
 
     } catch (err) {
         console.error('API Hatasi - stokOku:', err);

@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     }
 
     if (!GUVENLIK_TOKEN) {
-        return sendError(res, 500, 'Sunucu hatası: GUVENLIK_TOKEN ayarlanmamış. Lütfen Vercel ayarlarını kontrol edin.');
+        return sendError(res, 500, 'Sunucu hatası: GUVENLIK_TOKEN ayarlanmamış.');
     }
 
     if (!isAuthorized(req)) {
