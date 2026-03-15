@@ -36,14 +36,14 @@ const Utils = {
     cleanAd: function(ad) {
         if (!ad) return "";
         let clean = String(ad)
-            // 1. Birim ve miktar ibarelerini temizle
-            .replace(/(\d+[.,]?\d*)\s*(KG|GR|GM|G|L|LT|ML|ADET|PAKET|KOLI|CL|MT|X|GR\.|KG\.)/gi, "")
-            .replace(/\s*\d+\s*(GR|KG|ML|LT|L|G|ADET|PAKET|KOLI)\b/gi, "")
+            // 1. Birim ve miktar ibarelerini temizle (Uzun isimler önce gelmeli: LT vs L)
+            .replace(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|KG|GR|GM|ML|LT|CL|MT|GR\.|KG\.|L|G|X)/gi, "")
+            .replace(/\s*\d+\s*(ADET|PAKET|KOLI|KG|GR|ML|LT|L|G)\b/gi, "")
             // 2. Parantezleri temizle
             .replace(/\(.*\)/g, "")
             // 3. Fazla boşlukları temizle
             .replace(/\s+/g, " ").trim();
-        return clean.toLowerCase();
+        return clean.toUpperCase();
     },
 
     /**
