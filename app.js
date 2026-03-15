@@ -242,6 +242,50 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // --- SETTINGS NAVIGATION ---
+    const btnSettings = document.getElementById('btn-settings');
+    if (btnSettings) {
+        btnSettings.addEventListener('click', () => {
+            navItems.forEach(nav => nav.classList.remove('active'));
+            viewSections.forEach(section => section.classList.remove('active'));
+            const settingsView = document.getElementById('view-settings');
+            if (settingsView) {
+                settingsView.classList.add('active');
+                if (window.lucide) lucide.createIcons();
+                updateUI();
+            }
+        });
+    }
+
+    // --- SETTINGS MODALS ---
+    document.getElementById('btn-show-product-modal')?.addEventListener('click', () => {
+        const ad = document.getElementById('settings-urun-sec').value;
+        if (!ad) { showToast("Lütfen ürün seçin", "warning"); return; }
+        document.getElementById('product-modal-title').innerText = `${ad} Sıfırlansın mı?`;
+        document.getElementById('product-reset-modal').classList.add('active');
+    });
+
+    document.getElementById('btn-reset-product')?.addEventListener('click', () => resetUrun());
+
+    document.getElementById('btn-show-reset-modal')?.addEventListener('click', () => {
+        document.getElementById('reset-modal').classList.add('active');
+    });
+
+    const resetConfirmInput = document.getElementById('modal-reset-confirm');
+    const btnResetAll = document.getElementById('btn-reset-all');
+    resetConfirmInput?.addEventListener('input', (e) => {
+        const val = e.target.value;
+        if (btnResetAll) {
+            btnResetAll.disabled = val !== 'SIFIRLA';
+            btnResetAll.style.opacity = val === 'SIFIRLA' ? '1' : '0.5';
+        }
+    });
+
+    document.getElementById('btn-reset-all')?.addEventListener('click', () => resetApp());
+
+    window.hideProductModal = () => document.getElementById('product-reset-modal').classList.remove('active');
+    window.hideResetModal = () => document.getElementById('reset-modal').classList.remove('active');
 });
 
 /**
@@ -345,20 +389,22 @@ window.logoutApp = function () {
     window.location.reload();
 };
 
+
 /**
  * Reset specific product history
  */
 window.resetUrun = async function () {
     const urunSec = document.getElementById('settings-urun-sec');
     const ad = urunSec.value;
-    const miktar = parseFloat(document.getElementById('settings-baslangic-miktar').value) || 0;
+    const miktarInput = document.getElementById('settings-urun-yeni-miktar');
+    const miktar = parseFloat(miktarInput ? miktarInput.value : 0) || 0;
 
     if (!ad) { showToast("Lütfen ürün seçin", "warning"); return; }
-    if (!confirm(`${ad} geçmişi silinecek ve stok ${miktar} yapılacak. Emin misiniz?`)) return;
 
     try {
         await apiCall('urunGecmisiSifirla', { urunAdi: ad, baslangicMiktar: miktar });
         showToast("Ürün sıfırlandı", "success");
+        hideProductModal();
         await updateUI();
     } catch (e) { showToast("Hata oluştu", "error"); }
 };
@@ -367,13 +413,15 @@ window.resetUrun = async function () {
  * Reset entire system
  */
 window.resetApp = async function () {
-    const code = document.getElementById('settings-reset-code').value;
+    const codeInput = document.getElementById('modal-reset-confirm');
+    const code = codeInput ? codeInput.value : '';
     if (code !== 'SIFIRLA') { showToast("Onay kodu hatalı", "error"); return; }
     if (!confirm('TÜM SİSTEM SIFIRLANACAK! Bu işlem geri alınamaz. Emin misiniz?')) return;
 
     try {
         await apiCall('tumSistemiSifirla', { onayKodu: 'SIFIRLA' });
         showToast("Sistem sıfırlandı", "success");
+        hideResetModal();
         window.location.reload();
     } catch (e) { showToast("Sıfırlama hatası", "error"); }
 };
