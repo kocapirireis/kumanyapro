@@ -459,7 +459,7 @@ window.setupAdListener = function(li) {
         if (found) {
             if (statusCont) {
                 statusCont.className = 'o-status-container text-[10px] mb-2 px-1 italic flex items-center gap-1 text-success';
-                statusCont.innerHTML = `<i data-lucide="check-circle" style="width:10px; height:10px;"></i> <span>✅ EŞLEŞTİ: ${found.ad}</span>`;
+                statusCont.innerHTML = `<i data-lucide="check-circle" style="width:10px; height:10px;"></i> <span>✅ EŞLEŞTİ: ${found.ad.toUpperCase()}</span>`;
             }
             if (inputEskiStok) inputEskiStok.placeholder = `Mevcut: ${found.miktar}`;
         } else {
@@ -505,6 +505,6 @@ window.updateLiveTotal = function(li) {
     const artis = Inventory.calculateArtis(m, b, displayUnit);
     const eski = e !== "" ? Utils.safeParseFloat(e) : (product ? product.miktar : 0);
     
-    const toplam = (eski + artis).toFixed(2);
-    inputTotal.value = `${toplam} ${displayUnit}`;
+    const toplamLabel = parseFloat((eski + artis).toFixed(2));
+    inputTotal.value = `${toplamLabel} ${displayUnit}`;
 };
