@@ -12,28 +12,28 @@ const Inventory = {
         const miktar = Utils.safeParseFloat(faturaMiktari);
         
         let carpan = 1;
-        const bDetay = (birimDetay || "").trim().toUpperCase();
+        const bDetay = (birimDetay || "").trim();
+        // trToEn ile normalleştirip Türkçe ekleri (Lİ->LI, LÜ->LU) güvenle tanıyoruz
+        const bNorm = Utils.trToEn(bDetay);
         
-        // Eğer birim detayında Lİ, LÜ gibi paket ekleri kalınca çarpanı 1 kabul et
-        const isPackageCount = bDetay.match(/(LI|Lİ|LU|LÜ|ADET|PAKET|KOLİ|KOLI)(\s|$)/i);
+        // Paket eki tespiti (12Lİ, 100LÜ, ADET, PAKET, KOLI)
+        const isPackageCount = bNorm.match(/(LI|LU|IK|UK|ADET|PAKET|KOLI)(\s|$)/);
 
-        const mMatch = bDetay.match(/^([\d.,]+)\s*(.*)$/);
+        const mMatch = bNorm.match(/^([\d.,]+)\s*(.*)$/);
         if (mMatch && !isPackageCount) {
             carpan = Utils.safeParseFloat(mMatch[1]) || 1;
         }
 
         let rawArtis = miktar * carpan;
         
-        // --- HASSAS BİRİM HESAPLAMA ---
-        // Eğer displayUnit (veritabanı) belirtilmemişse, faturadaki (Kg, LT vb.) birimi temel al.
+        // --- BİRİM ÖLÇEKLEME ---
         const targetUnit = displayUnit || Utils.getDisplayUnit(birimDetay);
         const dUnit = targetUnit.toUpperCase();
-        const bDetayCap = bDetay.toUpperCase();
         
-        // Gram/ML ölçekleme (Eğer hedef KG ise ve girdi GR ise 1000'e böl)
-        if (dUnit === "KG" && (bDetayCap.includes("GR") || bDetayCap.includes(" G ") || bDetayCap.endsWith(" G"))) {
+        // Gram/ML ölçekleme (GR->KG, ML->L)
+        if (dUnit === "KG" && (bNorm.includes("GR") || bNorm.match(/\d+\s*G(\s|$)/))) {
             rawArtis = rawArtis / 1000;
-        } else if (dUnit === "L" && (bDetayCap.includes("ML") || bDetayCap.includes("CL"))) {
+        } else if (dUnit === "L" && (bNorm.includes("ML") || bNorm.includes("CL"))) {
             rawArtis = rawArtis / 1000;
         }
 
