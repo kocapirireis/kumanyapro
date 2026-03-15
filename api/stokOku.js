@@ -36,7 +36,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ basarili: true, veri: { urunler, sonHareketler } });
 
     } catch (err) {
-        console.error('API Hatasi - asd:', err);
+        console.error('API Hatasi - stokOku:', err);
         return sendError(res, 500, err.message);
     }
 }
