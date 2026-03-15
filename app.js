@@ -1,15 +1,18 @@
 /* Main Application Logic and Event Handlers */
 
-document.addEventListener('DOMContentLoaded', async () => {
-    // Initial UI Setup
-    if (window.lucide) lucide.createIcons();
-    
-    // Auth Check
-    const girisYapildi = localStorage.getItem('girisYapildi') === 'true';
-    const token = localStorage.getItem('userToken');
-    if (girisYapildi && token) {
-        await uygulamaAc(token);
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    // API ve Config yüklenmesi için kısa bir süre tanı (Mobil cihazlar için kritik)
+    setTimeout(async () => {
+        // Initial UI Setup
+        if (window.lucide) lucide.createIcons();
+        
+        // Auth Check
+        const girisYapildi = localStorage.getItem('girisYapildi') === 'true';
+        const token = localStorage.getItem('userToken');
+        if (girisYapildi && token) {
+            await uygulamaAc(token);
+        }
+    }, 100);
 
     // --- NAVIGATION ---
     const navItems = document.querySelectorAll('.nav-item');
