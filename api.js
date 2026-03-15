@@ -10,7 +10,7 @@ async function apiCall(islem, payload = {}) {
 
     try {
         console.log(`[API] ${islem} başlatılıyor...`);
-        const token = localStorage.getItem('userToken') || payload.token;
+        const token = localStorage.getItem('kumanya_stok_token') || payload.token;
 
         let endpoint = '';
         if (islem === 'faturaOku') endpoint = '/api/analyze';
@@ -18,7 +18,7 @@ async function apiCall(islem, payload = {}) {
         else if (islem === 'stokEkle') endpoint = '/api/stokEkle';
         else if (islem === 'analizHesapla') endpoint = '/api/analiz';
         else if (islem === 'tokenKontrol' || islem === 'ping') endpoint = '/api/auth';
-        else endpoint = '/api/ayarlar'; // tumSistemiSifirla, hareketGeriAl, vs.
+        else endpoint = '/api/ayarlar';
 
         let bodyPayload = { islem, token, payload };
 
@@ -57,7 +57,10 @@ async function apiCall(islem, payload = {}) {
         }
 
         if (result.basarili) {
-            return result.veri !== undefined ? result.veri : true;
+            return {
+                basarili: true,
+                veri: result.veri !== undefined ? result.veri : true
+            };
         }
         
         throw new Error(result.error || 'İşlem başarısız');
