@@ -109,6 +109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cameraInput = document.getElementById('camera-input');
     if (cameraInput) {
         cameraInput.addEventListener('change', async (e) => {
+            console.log("[OCR] Dosya seçildi, analiz başlatılıyor...");
             const file = e.target.files[0];
             if (!file) return;
 
