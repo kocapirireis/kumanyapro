@@ -1,207 +1,265 @@
-/* UI Rendering and Toast Logic */
-
-window.inventoryFilter = 'TRACKED'; // Default: Tracked products
-
-window.setInventoryFilter = function(filter, element) {
-    window.inventoryFilter = filter;
-    document.querySelectorAll('#view-inventory .pill-btn').forEach(opt => opt.classList.remove('active'));
-    if (element) element.classList.add('active');
-    if (window.renderInventoryList) {
-        window.renderInventoryList(window.globalUrunler);
-    }
-};
+/**
+ * UI Rendering Functions
+ * Version: 4.0 (Restore)
+ */
 
 /**
- * Global Toast Function
+ * Render Inventory Page
  */
-window.showToast = function(message, type = 'info', duration = 4000) {
-    const container = document.getElementById('toast-container');
+function renderInventoryList(data) {
+    const container = document.getElementById('inventory-list');
     if (!container) return;
+    
+    const filter = window.currentInventoryFilter || 'TRACKED';
+    const searchQuery = document.querySelector('.search-bar input')?.value.toLocaleLowerCase('tr') || '';
 
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+    // Clear and Show Loader
+    container.innerHTML = "";
+    
+    // Grouping by category
+    const categorized = {};
+    data.forEach(item => {
+        const matchesSearch = item.urun.toLocaleLowerCase('tr').includes(searchQuery);
+        const matchesFilter = (filter === 'ALL') || 
+                            (filter === 'TRACKED' && item.takip) || 
+                            (filter === 'UNTRACKED' && !item.takip);
 
-    let icon = 'info';
-    if (type === 'success') icon = 'check-circle';
-    if (type === 'error') icon = 'alert-circle';
-    if (type === 'warning') icon = 'alert-triangle';
+        if (matchesSearch && matchesFilter) {
+            const cat = item.kategori || "Diğer";
+            if (!categorized[cat]) categorized[cat] = [];
+            categorized[cat].push(item);
+        }
+    });
 
-    toast.innerHTML = `
-        <i data-lucide="${icon}" style="width:18px; height:18px;"></i>
-        <span></span>
-        <div class="toast-progress" style="animation-duration: ${duration}ms"></div>
-    `;
-    toast.querySelector('span').textContent = message;
+    if (Object.keys(categorized).length === 0) {
+        container.innerHTML = `<div class="py-10 text-center text-muted">Ürün bulunamadı.</div>`;
+        return;
+    }
 
-    container.appendChild(toast);
-    if (window.lucide) lucide.createIcons();
-
-    setTimeout(() => {
-        toast.classList.add('hide');
-        setTimeout(() => toast.remove(), 400);
-    }, duration);
+    for (const [cat, items] of Object.entries(categorized)) {
+        const section = document.createElement('div');
+        section.className = "cat-section mb-6";
+        section.innerHTML = `<h3 class="cat-title mb-3 font-bold text-sm uppercase text-primary">${cat}</h3>`;
+        
+        const list = document.createElement('div');
+        list.className = "space-y-3";
+        
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = "inventory-card glass flex justify-between items-center p-4";
+            
+            const isCritical = item.miktar <= (item.kritik || 0);
+            
+            card.innerHTML = `
+                <div class="inv-info">
+                    <h4 class="font-bold">${item.urun}</h4>
+                    <p class="text-[10px] text-muted uppercase tracking-wider">${item.birim}</p>
+                </div>
+                <div class="inv-amount text-right">
+                    <div class="text-lg font-bold ${isCritical ? 'text-danger' : 'text-white'}">${item.miktar}</div>
+                    <div class="text-[10px] font-medium opacity-40">MEVCUT</div>
+                </div>
+            `;
+            list.appendChild(card);
+        });
+        
+        section.appendChild(list);
+        container.appendChild(section);
+    }
 }
 
 /**
- * Update the entire UI
+ * Dashboard (Home) Updates
  */
-window.updateUI = async function () {
-    try {
-        console.log("[UI] updateUI tetiklendi...");
-        const response = await apiCall('stokOku');
-        if (!response || !response.veri) {
-            console.warn("[UI] Stok verisi gelmedi.");
-            return;
-        }
-
-        const data = response.veri;
-        window.globalUrunler = data.urunler || [];
-        window.currentStokMap = {};
-        window.currentIdMap = {};
-        (data.urunler || []).forEach(u => {
-            window.currentStokMap[u.ad] = u.miktar || 0;
-            if (u.id) window.currentIdMap[u.id] = u.miktar || 0;
-        });
-
-        // Dashboard summaries (v20 IDs harmonized with index.html)
-        const totalItems = document.getElementById('total-items');
-        const criticalItems = document.getElementById('critical-items');
-        
-        if (totalItems) totalItems.textContent = (data.urunler || []).length;
-
-        const kritikler = (data.urunler || []).filter(u => u.takip && u.miktar <= (u.minStok || 0));
-        if (criticalItems) criticalItems.textContent = kritikler.length;
-
-        // Recent Activity
-        const activityList = document.getElementById('recent-activity');
-        if (activityList && data.sonHareketler) {
-            window.tumHareketler = data.sonHareketler;
-            renderHomeActivity(5);
-        }
-
-        // Inventory List (if on inventory page)
-        renderInventoryList(window.globalUrunler);
-    } catch (err) {
-        console.error('[updateUI] Hata:', err);
-        showToast("Veriler yüklenirken bir sorun oluştu.", "error");
+function updateDashboard(data) {
+    // Toplam Ürün
+    document.getElementById('total-urun-count').innerHTML = `${data.length} <span class="text-xs font-normal text-muted">Kalem</span>`;
+    
+    // Kritik Stok Sayısı
+    const criticals = data.filter(i => i.takip && i.miktar <= (i.kritik || 0));
+    const banner = document.getElementById('critical-stock-banner');
+    
+    if (criticals.length > 0) {
+        banner.classList.remove('hidden');
+        document.getElementById('critical-stock-title').innerText = `Kritik Seviye: ${criticals.length} Ürün`;
+        document.getElementById('critical-stock-list').innerText = criticals.slice(0, 3).map(i => i.urun).join(', ') + (criticals.length > 3 ? '...' : '');
+    } else {
+        banner.classList.add('hidden');
     }
-};
+
+    // Hareketler - Son 5
+    // api.js'den gelen data içinde 'hareketler' de olabilir, yoksa stokOku'dan sonra ayrı çekilebilir.
+    // Şimdilik demo
+    renderHomeActivity();
+}
 
 /**
- * Render home activity list
+ * Stok Sayım Listesi (Sayfa 3 - Tab 2)
  */
-window.renderHomeActivity = function (limit) {
-    const activityList = document.getElementById('recent-activity');
-    if (!activityList || !window.tumHareketler) return;
-    
-    activityList.innerHTML = '';
-    const liste = window.tumHareketler.slice(0, limit);
-    
-    if (liste.length === 0) {
-        activityList.innerHTML = '<div class="text-center py-4 text-muted text-xs">Henüz hareket kaydı yok.</div>';
-        return;
-    }
+function renderStokSayimList() {
+    const container = document.getElementById('stok-sayim-items');
+    if (!container || !window.globalUrunler) return;
 
-    liste.forEach(h => {
-        const date = new Date(h.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
-        const item = document.createElement('div');
-        item.className = 'activity-item';
-        
-        const isUp = h.tip === 'GIRIS' || h.tip === 'BASLANGIC';
-        const colorClass = isUp ? 'text-success' : 'text-danger';
-        const icon = isUp ? 'plus-circle' : 'minus-circle';
-        
-        item.innerHTML = `
-            <div class="activity-icon ${isUp ? 'bg-success-light text-success' : 'bg-danger-light text-danger'}">
-                <i class="fas fa-${icon} text-xs"></i>
-            </div>
-            <div class="activity-details">
-                <h4 class="text-xs font-bold">${h.urun_adi || h.ad || 'Ürün'}</h4>
-                <p class="text-[10px] text-muted">${date} • ${h.tip}</p>
-            </div>
-            <div class="activity-amount ${colorClass} text-xs font-bold">
-                ${isUp ? '+' : '-'}${h.miktar}
+    const data = window.globalUrunler.filter(i => i.takip);
+    container.innerHTML = "";
+
+    data.sort((a,b) => a.urun.localeCompare(b.urun, 'tr')).forEach(item => {
+        const row = document.createElement('div');
+        row.className = "stok-sayim-row";
+        row.innerHTML = `
+            <div class="text-sm font-medium pr-2 overflow-hidden whitespace-nowrap overflow-ellipsis" style="padding-left:8px;">${item.urun}</div>
+            <div class="text-center font-bold text-primary">${item.miktar} <span class="text-[9px] text-muted">${item.birim}</span></div>
+            <div class="flex justify-center">
+                <input type="number" step="any" class="sayim-input" data-ad="${item.urun}" placeholder="---" 
+                    style="width:80%; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); border-radius:6px; color:white; text-align:center; padding:4px 0; font-weight:bold; font-size:14px; outline:none;">
             </div>
         `;
-        activityList.appendChild(item);
+        container.appendChild(row);
     });
-};
+}
 
 /**
- * Render main inventory list with category grouping
+ * Scanned Items Render (Fatura/AI)
  */
-window.renderInventoryList = function (urunler) {
-    if (!urunler) return;
-    const inventoryList = document.getElementById('inventory-list');
-    if (!inventoryList) return;
+function renderScannedItems(items) {
+    const list = document.querySelector('.checklist');
+    list.innerHTML = "";
 
-    const searchInput = document.getElementById('inventory-search');
-    const searchTerm = searchInput ? searchInput.value.toLowerCase() : "";
+    items.forEach((item, index) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <label class="custom-checkbox">
+                <input type="checkbox" checked class="scanned-checkbox" data-index="${index}">
+                <span class="checkmark"></span>
+                <div class="check-content">
+                    <span class="font-bold">${item.ad}</span>
+                    <span class="text-primary">${item.miktar} ${item.birim}</span>
+                </div>
+            </label>
+        `;
+        list.appendChild(li);
+    });
+}
 
-    inventoryList.innerHTML = '';
+/**
+ * Analytics Page Render
+ */
+async function loadAnalytics() {
+    const container = document.getElementById('analytics-items');
+    container.innerHTML = `<div class="text-center py-10 text-muted">Veriler analiz ediliyor...</div>`;
     
-    const categories = {
-        "et": "Et Ürünleri",
-        "kahvalti": "Kahvaltılık",
-        "kuru": "Kuru Gıda",
-        "temizlik": "Temizlik",
-        "diger": "Diğer"
-    };
+    try {
+        const result = await apiCall('analizHesapla');
+        if (result && result.analiz) {
+            renderAnalyticsList(result.analiz);
+            renderOrderSuggestions(result.onerilenSiparis);
+            
+            // Dashboard Average Days update
+            updateAvgDays(result.analiz);
+        }
+    } catch (error) {
+        container.innerHTML = `<div class="text-center py-10 text-danger">Hata: ${error.message}</div>`;
+    }
+}
 
-    // Filter and group
-    const filtered = urunler.filter(u => (u.ad || "").toLowerCase().includes(searchTerm));
+function renderAnalyticsList(analiz) {
+    const container = document.getElementById('analytics-items');
+    container.innerHTML = "";
+
+    analiz.forEach(item => {
+        const row = document.createElement('div');
+        row.className = "analiz-row";
+        
+        const bitisStr = item.stokBitis === "KRİTİK" ? `<span class="text-danger font-bold">KRİTİK</span>` :
+                       item.stokBitis === "YETERLİ" ? `<span class="text-success">YETERLİ</span>` : 
+                       item.stokBitis === "-" ? "-" : item.stokBitis;
+
+        row.innerHTML = `
+            <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.urun}</div>
+            <div style="text-align:center; font-size:11px;">${bitisStr}</div>
+            <div style="text-align:center; font-weight:bold;">${item.aylikTuketim}</div>
+            <div style="text-align:center; font-weight:bold; color:var(--primary);">${item.mevcutStok}</div>
+        `;
+        container.appendChild(row);
+    });
+}
+
+function renderOrderSuggestions(suggestions) {
+    const container = document.querySelector('.order-suggestions');
+    container.innerHTML = "";
     
-    if (filtered.length === 0) {
-        inventoryList.innerHTML = '<div class="text-center py-12 text-muted text-sm">Ürün bulunamadı.</div>';
+    if (!suggestions || suggestions.length === 0) {
+        container.innerHTML = `<div class="glass p-4 text-center text-muted">Şu an acil sipariş gerekmiyor.</div>`;
         return;
     }
 
-    // Simplified listing for test
-    filtered.forEach(u => {
+    suggestions.forEach(item => {
         const card = document.createElement('div');
-        card.className = 'inventory-card glass mb-2 p-3 flex justify-between items-center';
+        card.className = "suggestion-card glass mb-3";
         card.innerHTML = `
-            <div>
-                <h4 class="text-sm font-bold">${u.ad}</h4>
-                <p class="text-xs text-muted">${u.miktar} ${u.birim || ''}</p>
+            <div class="sugg-icon bg-warning-light text-warning">
+                <i data-lucide="shopping-cart" style="width:20px; height:20px;"></i>
             </div>
-            <div class="flex gap-2">
-                <button class="icon-btn-sm" onclick="showItemDetail('${u.id}')"><i class="fas fa-chevron-right"></i></button>
+            <div class="sugg-info">
+                <h4>${item.urun}</h4>
+                <p>Eksik: <span class="text-white font-bold">${item.eksiMiktar}</span> ${item.birim}</p>
             </div>
         `;
-        inventoryList.appendChild(card);
+        container.appendChild(card);
     });
-};
+    
+    if (window.lucide) window.lucide.createIcons();
+}
 
 /**
- * Render Analytics Data
+ * Helpers
  */
-window.updateAnalytics = async function () {
-    const container = document.getElementById('ai-suggestions');
-    if (!container) return;
+function updateAvgDays(analiz) {
+    // Basit bir ortalama hesaplama demosudur
+    const avgElem = document.getElementById('avg-days');
+    if (!avgElem) return;
 
-    try {
-        const res = await apiCall('analizHesapla');
-        if (!res || !res.veri) return;
-        
-        const items = res.veri;
-        if (items.length === 0) {
-            container.innerHTML = '<div class="text-center py-8 text-muted text-xs">Henüz analiz verisi yok.</div>';
-            return;
+    let total = 0;
+    let count = 0;
+    analiz.forEach(a => {
+        if (typeof a.stokBitis === 'number') {
+            total += a.stokBitis;
+            count++;
         }
+    });
 
-        container.innerHTML = items.slice(0, 5).map(item => `
-            <div class="suggestion-card glass mb-3">
-                <div class="sugg-icon bg-primary-light">
-                    <i class="fas fa-lightbulb text-primary"></i>
-                </div>
-                <div class="sugg-info">
-                    <h4 class="text-xs font-bold">${item.urunAdi}</h4>
-                    <p class="text-[10px] text-muted">Tahmini süre: <span class="white">${item.kacAyYeter || '?'} ay</span></p>
-                </div>
-            </div>
-        `).join('');
-    } catch (err) {
-        console.warn("Analytics error:", err);
+    if (count > 0) {
+        const avg = Math.round(total / count);
+        avgElem.innerHTML = `${avg} <span class="text-xs font-normal">Gün</span>`;
     }
+}
+
+/**
+ * Settings UI Updates
+ */
+function updateSettingsFields(data) {
+    const select = document.getElementById('settings-urun-sec');
+    if (!select) return;
+
+    const currentVal = select.value;
+    select.innerHTML = `<option value="">-- Ürün Seçin --</option>`;
+    
+    data.sort((a,b) => a.urun.localeCompare(b.urun, 'tr')).forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.urun;
+        opt.innerText = item.urun;
+        select.appendChild(opt);
+    });
+    
+    select.value = currentVal;
+}
+
+/**
+ * Internal UI Controls
+ */
+window.setInventoryFilter = (f, btn) => {
+    window.currentInventoryFilter = f;
+    document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderInventoryList(window.globalUrunler);
 };
