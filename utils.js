@@ -75,9 +75,8 @@ const Utils = {
      */
     extractBirimDetay: function(ad) {
         if (!ad) return "";
-        // İsimdeki miktar + birim kalıbını yakalar. 
-        // Sondaki (?![A-ZİIŞŞĞĞÜÜÖÖ]) kısmı "Lİ", "LÜ" gibi ekleri korur, onları birim sanmaz.
-        const match = String(ad).match(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X)(?![A-ZİIŞŞĞĞÜÜÖÖ])/i);
+        // İsimden miktar + birim + ek (LI, LÜ vb.) yapısını yakalar
+        const match = String(ad).match(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?\.?\b/i);
         if (match) {
             return match[0].toUpperCase().replace(/[.]/g, "").trim();
         }
