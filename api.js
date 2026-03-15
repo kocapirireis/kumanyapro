@@ -23,7 +23,7 @@ async function apiCall(islem, payload = {}) {
         let bodyPayload = { islem, token, payload };
 
         if (islem === 'faturaOku') {
-            bodyPayload = { imageBase64: payload.imageBase64 }; // Analyze doesn't check token immediately yet
+            bodyPayload = { islem, token, imageBase64: payload.imageBase64 };
         }
 
         const response = await fetch(endpoint, {
@@ -36,6 +36,11 @@ async function apiCall(islem, payload = {}) {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
+            if (response.status === 401) {
+                console.error("[API] 401 Unauthorized - Oturum geçersiz.");
+                if (window.logoutApp) window.logoutApp();
+                throw new Error("Oturum süresi dolmuş. Lütfen tekrar giriş yapın.");
+            }
             let errorMsg = 'Backend bağlantı hatası: ' + response.status;
             try { 
                 const err = await response.json(); 

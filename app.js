@@ -11,6 +11,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const token = localStorage.getItem('userToken');
         if (girisYapildi && token) {
             await uygulamaAc(token);
+        } else {
+            // Logout state: show login screen
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.getElementById('view-login').classList.add('active');
+            const bottomNav = document.querySelector('.bottom-nav');
+            if (bottomNav) bottomNav.style.display = 'none';
         }
     }, 100);
 
