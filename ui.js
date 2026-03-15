@@ -403,7 +403,16 @@ window.renderScannedItems = function(urunler, status = "success", message = "") 
     if (status === "error" || !urunler || urunler.length === 0) {
         checklist.innerHTML = `<div class="p-4 text-center text-danger text-sm glass">Fatura okunamadı veya ürün bulunamadı.</div>`;
     } else {
-        urunler.forEach((urun, idx) => {
+                urunler.forEach((urun, idx) => {
+            const rawName = urun.ad || urun.urun_adi || '';
+            const cleanedName = Utils.cleanAd(rawName);
+            // Eğer birim_detay boşsa veya sadece 'Adet' yazıyorsa, isimden miktar çekmeyi dene
+            let birimDetay = urun.birim_detay || '';
+            if (!birimDetay || birimDetay.toLowerCase() === 'adet') {
+                const extracted = Utils.extractBirimDetay(rawName);
+                if (extracted) birimDetay = extracted;
+            }
+
             const li = document.createElement('li');
             li.className = 'mb-4 glass p-3';
             li.innerHTML = `
@@ -411,7 +420,7 @@ window.renderScannedItems = function(urunler, status = "success", message = "") 
                     <input type="checkbox" checked class="mt-2 urun-onay-check" data-idx="${idx}">
                     <div class="flex-col w-full pr-8">
                         ${urun.uyari ? `<div class="text-[10px] text-accent mb-1"><i data-lucide="alert-triangle" style="width:12px; height:12px;"></i> ${urun.uyari}</div>` : ''}
-                        <input type="text" class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white mb-1 o-ad uppercase" value="${Utils.cleanAd(urun.ad || urun.urun_adi || '')}" data-orijinal="${urun.gemini_adi || ''}">
+                        <input type="text" class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white mb-1 o-ad uppercase" value="${cleanedName}" data-orijinal="${urun.gemini_adi || ''}">
                         <div class="o-status-container text-[10px] mb-2 px-1 italic flex items-center gap-1"></div>
                         <div class="grid gap-2" style="display:grid; grid-template-columns: 0.6fr 1fr 0.8fr 1.2fr;">
                             <div class="flex-col">
@@ -420,7 +429,7 @@ window.renderScannedItems = function(urunler, status = "success", message = "") 
                             </div>
                             <div class="flex-col">
                                 <label class="text-xs text-muted mb-1 block text-center">Birim (Detay)</label>
-                                <input type="text" class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white text-center o-birim-detay" value="${urun.birim_detay || ''}">
+                                <input type="text" class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white text-center o-birim-detay" value="${birimDetay}">
                             </div>
                             <div class="flex-col">
                                 <label class="text-xs text-accent font-bold mb-1 block text-center">Eski Stok</label>
@@ -458,11 +467,16 @@ window.setupAdListener = function(li) {
 
         if (found) {
             if (statusCont) {
+                const upperAd = found.ad.toUpperCase();
                 statusCont.className = 'o-status-container text-[10px] mb-2 px-1 italic flex items-center gap-1 text-success';
-                statusCont.innerHTML = `<i data-lucide="check-circle" style="width:10px; height:10px;"></i> <span>✅ EŞLEŞTİ: ${found.ad.toUpperCase()}</span>`;
+                statusCont.innerHTML = `<i data-lucide="check-circle" style="width:10px; height:10px;"></i> <span>✅ EŞLEŞTİ: ${upperAd}</span>`;
+                // Input değerini de eşleşen isme (büyük harf) çevir
+                inputAd.value = upperAd;
             }
             if (inputEskiStok) inputEskiStok.placeholder = `Mevcut: ${found.miktar}`;
         } else {
+            // Eşleşme yoksa sadece girilen yazıyı büyük harf yap
+            inputAd.value = inputAd.value.toUpperCase();
             if (statusCont) {
                 statusCont.className = 'o-status-container text-[10px] mb-2 px-1 italic flex items-center gap-1 text-muted';
                 statusCont.innerHTML = `<i data-lucide="help-circle" style="width:10px; height:10px;"></i> <span>❓ YENİ ÜRÜN</span>`;
@@ -505,6 +519,7 @@ window.updateLiveTotal = function(li) {
     const artis = Inventory.calculateArtis(m, b, displayUnit);
     const eski = e !== "" ? Utils.safeParseFloat(e) : (product ? product.miktar : 0);
     
-    const toplamLabel = parseFloat((eski + artis).toFixed(2));
-    inputTotal.value = `${toplamLabel} ${displayUnit}`;
+    const toplamVal = Utils.safeParseFloat(eski + artis);
+    const toplamDisplay = Number.isInteger(toplamVal) ? toplamVal : toplamVal.toFixed(2);
+    inputTotal.value = `${toplamDisplay} ${displayUnit}`;
 };
