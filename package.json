@@ -1,0 +1,17 @@
+{
+  "name": "kumanyapro",
+  "version": "1.0.0",
+  "description": "Kumanya Takip Sistemi - Vercel Edition",
+  "main": "index.html",
+  "scripts": {
+    "start": "serve .",
+    "build": "echo 'No build step required'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}
