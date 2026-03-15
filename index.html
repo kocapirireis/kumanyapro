@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- CSS -->
-    <link rel="stylesheet" href="style.css?v=20">
+    <link rel="stylesheet" href="style.css?v=21">
     
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
@@ -53,7 +53,7 @@
                 </div>
                 
                 <div class="login-footer">
-                    Modern Stock Management v4.5
+                    Professional Stock Tracking v4.6
                 </div>
             </div>
         </div>
@@ -169,7 +169,10 @@
                 <!-- Ayarlar View -->
                 <div id="ayarlar-view" class="tab-content">
                     <div class="p-4">
-                        <h2 class="text-lg font-bold mb-6">Ayarlar</h2>
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-lg font-bold">Ayarlar</h2>
+                            <button class="text-xs text-primary" onclick="window.location.reload()">Sayfayı Yenile</button>
+                        </div>
                         
                         <div class="glass p-4 mb-4">
                             <div class="flex justify-between py-2">
@@ -190,10 +193,10 @@
 
                         <div class="glass p-4">
                             <h4 class="text-sm font-bold mb-4">Veri Yönetimi</h4>
-                            <button class="btn-primary w-full bg-danger-light text-danger shadow-none mb-3" id="reset-storage-btn">
+                            <button class="pill-btn w-full bg-danger-light text-danger mb-3" id="reset-storage-btn">
                                 Önbelleği Temizle
                             </button>
-                            <button class="btn-primary w-full shadow-none" id="logout-btn">
+                            <button class="pill-btn w-full bg-primary-light text-primary" id="logout-btn">
                                 ÇIKIŞ YAP
                             </button>
                         </div>
@@ -239,18 +242,18 @@
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- Scripts (Ordered for dependency) -->
-    <script src="config.js?v=20"></script>
-    <script src="utils.js?v=20"></script>
-    <script src="api.js?v=20"></script>
-    <script src="inventory.js?v=20"></script>
-    <script src="ui.js?v=20"></script>
-    <script src="app.js?v=20"></script>
+    <!-- Scripts -->
+    <script src="config.js?v=21"></script>
+    <script src="utils.js?v=21"></script>
+    <script src="api.js?v=21"></script>
+    <script src="inventory.js?v=21"></script>
+    <script src="ui.js?v=21"></script>
+    <script src="app.js?v=21"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js?v=20').then(reg => {
+                navigator.serviceWorker.register('/sw.js?v=21').then(reg => {
                     reg.onupdatefound = () => {
                         const installingWorker = reg.installing;
                         installingWorker.onstatechange = () => {

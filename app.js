@@ -24,34 +24,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- NAVIGATION ---
     const navItems = document.querySelectorAll('.nav-item');
-    const viewSections = document.querySelectorAll('.view-section');
+    const tabContents = document.querySelectorAll('.tab-content'); // Fix: Target tab-content inside main-view
 
     navItems.forEach(item => {
         item.addEventListener('click', async (e) => {
             const targetId = item.getAttribute('data-tab');
             if (!targetId) return;
 
+            // Update Nav UI
             navItems.forEach(nav => nav.classList.remove('active'));
             item.classList.add('active');
 
-            viewSections.forEach(section => section.classList.remove('active'));
-            const targetView = document.getElementById(targetId + '-view');
-            if (targetView) {
-                targetView.classList.add('active');
+            // Switch Tabs (DO NOT hide main-view)
+            tabContents.forEach(content => content.classList.remove('active'));
+            const targetContent = document.getElementById(targetId + '-view');
+            if (targetContent) {
+                targetContent.classList.add('active');
                 if (window.lucide) lucide.createIcons();
                 
                 // Section-specific loading
                 try {
                     if (targetId === 'dashboard' || targetId === 'stok') {
                         if (typeof window.updateUI === 'function') await window.updateUI();
-                        else console.warn("updateUI fonksiyonu henüz yüklenmedi.");
                     }
                     if (targetId === 'analiz') {
                         if (typeof window.updateAnalytics === 'function') await window.updateAnalytics();
-                        else console.warn("updateAnalytics fonksiyonu henüz yüklenmedi.");
                     }
                 } catch (err) {
-                    console.error("Navigasyon yükleme hatası:", err);
+                    console.error("Tab yükleme hatası:", err);
                 }
             }
         });
@@ -124,6 +124,7 @@ async function uygulamaAc(token) {
     localStorage.setItem('kumanya_stok_token', token);
     localStorage.setItem('girisYapildi', 'true');
     
+    // Switch View Sections (Login -> Main)
     document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
     const mainView = document.getElementById('main-view');
     if (mainView) mainView.classList.add('active');
@@ -131,7 +132,7 @@ async function uygulamaAc(token) {
     const bottomNav = document.querySelector('.bottom-nav');
     if (bottomNav) bottomNav.style.display = 'flex';
     
-    // Ensure dashboard is active
+    // Ensure Dashboard Tab is active
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     const dashboardView = document.getElementById('dashboard-view');
     if (dashboardView) dashboardView.classList.add('active');
@@ -140,7 +141,6 @@ async function uygulamaAc(token) {
     if (typeof window.updateUI === 'function') {
         await window.updateUI();
     } else {
-        console.warn("Daha fonksiyonlar yüklenemedi, bekleniyor...");
         setTimeout(() => { if(window.updateUI) window.updateUI(); }, 500);
     }
 }
