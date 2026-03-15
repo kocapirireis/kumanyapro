@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- CSS -->
-    <link rel="stylesheet" href="style.css?v=19">
+    <link rel="stylesheet" href="style.css?v=20">
     
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
@@ -53,7 +53,7 @@
                 </div>
                 
                 <div class="login-footer">
-                    Secure Storage System v4.4
+                    Modern Stock Management v4.5
                 </div>
             </div>
         </div>
@@ -135,10 +135,6 @@
                             <input type="text" id="inventory-search" placeholder="Ürün veya kategori ara...">
                         </div>
 
-                        <div class="category-tabs" id="category-tabs">
-                            <button class="tab active" data-category="all">Tümü</button>
-                        </div>
-
                         <div class="inventory-list" id="inventory-list">
                             <!-- Items will be loaded here -->
                         </div>
@@ -153,7 +149,6 @@
                         <div class="glass p-4 mb-6">
                             <p class="text-sm font-semibold mb-2">Haftalık Dağılım</p>
                             <div class="bar-chart-container" id="weekly-chart">
-                                <!-- Bars will be injected here -->
                                 <div class="bar-column"><div class="bar-fill bg-primary" style="height: 40%"></div><span class="bar-label">Pzt</span></div>
                                 <div class="bar-column"><div class="bar-fill bg-primary" style="height: 65%"></div><span class="bar-label">Sal</span></div>
                                 <div class="bar-column"><div class="bar-fill bg-primary" style="height: 85%"></div><span class="bar-label">Çar</span></div>
@@ -166,15 +161,7 @@
 
                         <h3 class="text-sm font-bold mb-3">Akıllı Öneriler</h3>
                         <div id="ai-suggestions">
-                            <div class="suggestion-card glass mb-3">
-                                <div class="sugg-icon bg-accent-light">
-                                    <i class="fas fa-lightbulb text-accent"></i>
-                                </div>
-                                <div class="sugg-info">
-                                    <h4>Yağ Stok Azalıyor</h4>
-                                    <p>Mevcut hızla 3 gün içinde tükenebilir.</p>
-                                </div>
-                            </div>
+                            <div class="text-center py-4 text-muted text-xs">Tahminler hesaplanıyor...</div>
                         </div>
                     </div>
                 </div>
@@ -252,32 +239,26 @@
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- Scripts -->
-    <script src="config.js?v=19"></script>
-    <script src="utils.js?v=19"></script>
-    <script src="api.js?v=19"></script>
-    <script src="inventory.js?v=19"></script>
-    <script src="ui.js?v=19"></script>
-    <script src="app.js?v=19"></script>
+    <!-- Scripts (Ordered for dependency) -->
+    <script src="config.js?v=20"></script>
+    <script src="utils.js?v=20"></script>
+    <script src="api.js?v=20"></script>
+    <script src="inventory.js?v=20"></script>
+    <script src="ui.js?v=20"></script>
+    <script src="app.js?v=20"></script>
 
     <script>
-        // Service Worker registration with update notification
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js?v=19').then(registration => {
-                    console.log('SW registered: ', registration);
-                    
-                    registration.addEventListener('updatefound', () => {
-                        const newWorker = registration.installing;
-                        newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                console.log('New SW version found, reloading page...');
+                navigator.serviceWorker.register('/sw.js?v=20').then(reg => {
+                    reg.onupdatefound = () => {
+                        const installingWorker = reg.installing;
+                        installingWorker.onstatechange = () => {
+                            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
                                 window.location.reload();
                             }
-                        });
-                    });
-                }).catch(registrationError => {
-                    console.log('SW registration failed: ', registrationError);
+                        };
+                    };
                 });
             });
         }

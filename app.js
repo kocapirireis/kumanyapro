@@ -20,12 +20,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const bottomNav = document.querySelector('.bottom-nav');
             if (bottomNav) bottomNav.style.display = 'none';
         }
-    }, 100);
+    }, 150);
 
     // --- NAVIGATION ---
     const navItems = document.querySelectorAll('.nav-item');
     const viewSections = document.querySelectorAll('.view-section');
-    const bottomNav = document.querySelector('.bottom-nav');
 
     navItems.forEach(item => {
         item.addEventListener('click', async (e) => {
@@ -42,8 +41,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (window.lucide) lucide.createIcons();
                 
                 // Section-specific loading
-                if (targetId === 'dashboard' || targetId === 'stok') await updateUI();
-                if (targetId === 'analiz') await updateAnalytics();
+                try {
+                    if (targetId === 'dashboard' || targetId === 'stok') {
+                        if (typeof window.updateUI === 'function') await window.updateUI();
+                        else console.warn("updateUI fonksiyonu henüz yüklenmedi.");
+                    }
+                    if (targetId === 'analiz') {
+                        if (typeof window.updateAnalytics === 'function') await window.updateAnalytics();
+                        else console.warn("updateAnalytics fonksiyonu henüz yüklenmedi.");
+                    }
+                } catch (err) {
+                    console.error("Navigasyon yükleme hatası:", err);
+                }
             }
         });
     });
@@ -116,16 +125,24 @@ async function uygulamaAc(token) {
     localStorage.setItem('girisYapildi', 'true');
     
     document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-    document.getElementById('main-view').classList.add('active');
+    const mainView = document.getElementById('main-view');
+    if (mainView) mainView.classList.add('active');
     
     const bottomNav = document.querySelector('.bottom-nav');
     if (bottomNav) bottomNav.style.display = 'flex';
     
     // Ensure dashboard is active
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    document.getElementById('dashboard-view').classList.add('active');
+    const dashboardView = document.getElementById('dashboard-view');
+    if (dashboardView) dashboardView.classList.add('active');
     
-    await updateUI();
+    // Initial data load
+    if (typeof window.updateUI === 'function') {
+        await window.updateUI();
+    } else {
+        console.warn("Daha fonksiyonlar yüklenemedi, bekleniyor...");
+        setTimeout(() => { if(window.updateUI) window.updateUI(); }, 500);
+    }
 }
 
 /**
