@@ -5,25 +5,26 @@
 
 const Utils = {
     /**
-     * Ürün ismini temizler ve standartlaştırır.
-     * İsim sonundaki miktar ve birim ibarelerini (500GR, 5LT vb.) temizler.
+     * Türkçe karakterleri İngilizce karşılıklarına çevirir (İç mantık için).
      */
-    /**
-     * Ürün ismini tespiti ve eşleşme için STANDARTLAŞTIRIR.
-     * Boşlukları siler, sadece harf ve rakam bırakır.
-     */
-    normalizeAd: function(ad) {
-        if (!ad) return "";
-        let clean = String(ad).toUpperCase()
-            // 1. Birim ve miktar ibarelerini temizle (500GR, 5 LT, 1KG vb.)
-            .replace(/(\d+[.,]?\d*)\s*(KG|GR|GM|G|L|LT|ML|ADET|PAKET|KOLI|CL|MT|X|GR\.|KG\.)/gi, "")
-            .replace(/\s*\d+\s*(GR|KG|ML|LT|L|G|ADET|PAKET|KOLI)\b/gi, "")
-            // 2. Parantez içindeki ek bilgileri temizle
-            .replace(/\(.*\)/g, "")
-            // 3. Özel karakterleri ve fazla boşlukları temizle
+    trToEn: function(str) {
+        if (!str) return "";
+        return String(str)
             .replace(/[İIı]/g, 'I').replace(/[Şş]/g, 'S')
             .replace(/[Çç]/g, 'C').replace(/[Ğğ]/g, 'G')
             .replace(/[Üü]/g, 'U').replace(/[Öö]/g, 'O')
+            .toUpperCase();
+    },
+
+    /**
+     * Ürün ismini eşleşme ve arama için STANDARTLAŞTIRIR.
+     */
+    normalizeAd: function(ad) {
+        if (!ad) return "";
+        let clean = this.trToEn(ad)
+            // 1. Birim ve miktar ibarelerini temizle
+            .replace(/(\d+[.,]?\d*)\s*(KG|GR|GM|G|L|LT|ML|ADET|PAKET|KOLI|CL|MT|X|T)(LI|LU|LU|LI|IK|UK)?/gi, "")
+            // 2. Özel karakterleri ve fazla boşlukları temizle
             .replace(/[^A-Z0-9]/g, "")
             .trim();
         return clean;
@@ -31,26 +32,22 @@ const Utils = {
 
     /**
      * Ürün ismini EKRAN GÖSTERİMİ için temizler.
-     * Miktar ibarelerini siler ama kelimeler arası boşlukları korur.
      */
     cleanAd: function(ad) {
         if (!ad) return "";
-        let clean = String(ad).toUpperCase()
-            // 1. Birim, miktar ve Türkçe ekleri (Lİ, LÜ vb.) temizle
-            // Örn: 100 LÜ, 12 Lİ, 500GR, 5LT
-            // \b yerine (\s|$) kullanarak Türkçe karakterlerin (İ, Ü) sonunda da çalışmasını sağlıyoruz.
-            .replace(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?(\s|$)/gi, " ")
-            .replace(/\s*\d+\s*(ADET|PAKET|KOLI|KG|GR|ML|LT|L|G|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?(\s|$)/gi, " ")
-            // 2. Parantezleri ve içeriğini temizle
-            .replace(/\(.*\)/g, "")
-            // 3. Özel karakterleri boşluğa çevir
-            .replace(/[*\-_#]/g, " ")
-            // 4. Fazla boşlukları temizle
-            .replace(/\s+/g, " ").trim();
+        let text = String(ad).toUpperCase();
         
-        // 5. Sondaki anlamsız tekil karakterleri temizle
+        // Temizleme kuralı (Türkçe ekleri de kapsar)
+        const unitRegex = /(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?(\s|$)/gi;
+        
+        let clean = text.replace(unitRegex, " ")
+                        .replace(/\s*\d+\s*(ADET|PAKET|KOLI|KG|GR|ML|LT|L|G|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?(\s|$)/gi, " ")
+                        .replace(/\(.*\)/g, "")
+                        .replace(/[*\-_#]/g, " ")
+                        .replace(/\s+/g, " ").trim();
+        
+        // Sondaki tekil anlamsız karakteri sil
         clean = clean.replace(/\s+[A-Z0-9İIŞŞĞĞÜÜÖÖ]$/g, "");
-            
         return clean.trim();
     },
 
@@ -59,33 +56,34 @@ const Utils = {
      */
     getDisplayUnit: function(birimDetay) {
         if (!birimDetay) return "ADET";
-        const bd = birimDetay.toUpperCase().trim().replace(/[.]/g, "");
+        const bd = this.trToEn(birimDetay).replace(/[.]/g, "").trim();
         
-        // KG Grubu (Hassas eşleşme: Boşluklu veya boşluksuz)
-        if (bd.match(/(\d+|^)\s*(KG|GRAM|GR|G|GM)(\s|$)/i) || bd.includes("KG") || bd.includes("GRAM")) return "KG";
+        // KG Grubu
+        if (bd.match(/(\d+|^)\s*(KG|GRAM|GR|G|GM)(\s|$)/i) || bd === "KG" || bd === "GR") return "KG";
         
-        // L Grubu (Hassas eşleşme: Boşluklu veya boşluksuz)
-        // Yanına ek gelirse (LÜ, Lİ gibi) ADET'e düşer, saf L veya LT ise L olur.
-        if (bd.match(/(\d+|^)\s*(LT|ML|CL|L)(\s|$)/i) || bd.includes("LT") || bd.includes("ML") || bd.includes(" L ")) return "L";
+        // L Grubu (Sadece saf L veya LT ise, LU/LI ekleri yoksa)
+        const isPackage = bd.match(/(LI|LU|IK|UK)(\s|$)/i);
+        if (!isPackage && (bd.match(/(\d+|^)\s*(LT|ML|CL|L)(\s|$)/i) || bd === "LT" || bd === "L")) return "L";
         
         return "ADET";
     },
 
     /**
-     * Ürün adından çıkarılan miktar bilgisini (5L, 500GR vb.) geri getirir.
+     * Ürün adından çıkarılan miktar bilgisini (5L, 100LÜ vb.) geri getirir.
      */
     extractBirimDetay: function(ad) {
         if (!ad) return "";
-        // İsimden miktar + birim + ek (LI, LÜ vb.) yapısını yakalar
-        const match = String(ad).match(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?(\s|$)/i);
+        const text = String(ad).toUpperCase();
+        // Türkçe takıları da içeren miktar yakalama
+        const match = text.match(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?(\s|$)/i);
         if (match) {
-            return match[0].toUpperCase().replace(/[.]/g, "").trim();
+            return match[0].replace(/[.]/g, "").trim();
         }
         return "";
     },
 
     /**
-     * İki ürün isminin eşleşip eşleşmediğini kontrol eder.
+     * Eşleşme kontrolü (Gelişmiş)
      */
     isMatched: function(a, b) {
         const na = this.normalizeAd(a);
@@ -93,10 +91,7 @@ const Utils = {
         if (!na || !nb) return false;
         if (na === nb) return true;
         
-        // 3 karakterden kısa ise sadece tam eşleşme (BAL, SU vb. koruması)
         if (na.length <= 3 || nb.length <= 3) return na === nb;
-
-        // Bir ismin diğeri içinde geçip geçmediğini kontrol et
         return na.includes(nb) || nb.includes(na);
     },
 
@@ -113,7 +108,7 @@ const Utils = {
      * Gram/ML değerlerini KG/L birimine ölçekler.
      */
     scaleToMainUnit: function(value, unitStr) {
-        const u = (unitStr || "").toUpperCase();
+        const u = this.trToEn(unitStr);
         if (u.includes("GR") || u.includes(" G") || u.includes("ML")) {
             return value / 1000;
         }
