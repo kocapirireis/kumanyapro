@@ -3,100 +3,423 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemi Kumanya Stok</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0ea5e9">
-    <!-- Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Lucide Icons -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>KumanyaPro | Gemi Stok Takip</title>
+
+    <!-- PWA & Mobile Meta -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#050b14">
+
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="config.js"></script>
-    <script src="utils.js"></script>
-    <script src="alias.js"></script>
-    <script src="inventory.js"></script>
+
+    <!-- Libs & Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="api.js"></script>
     <script src="ui.js"></script>
     <script src="app.js"></script>
-    <style>
-        /* [style.css içeriği aşağıya gömülüyor] */
-        :root {
-            --bg-color: #050b14;
-            --surface-color: rgba(18, 30, 48, 0.65);
-            --surface-hover: rgba(28, 45, 70, 0.85);
-            --border-color: rgba(45, 70, 105, 0.35);
-            --primary: #0ea5e9;
-            --primary-light: rgba(14, 165, 233, 0.15);
-            --accent: #facc15;
-            --accent-light: rgba(250, 204, 21, 0.15);
-            --danger: #ef4444;
-            --danger-light: rgba(239, 68, 68, 0.15);
-            --success: #10b981;
-            --success-light: rgba(16, 185, 129, 0.15);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --header-height: 70px;
-            --nav-height: 75px;
-            --glass-blur: blur(12px);
-            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
+    <link rel="stylesheet" href="style.css">
+    <!-- manifest.json ve service-worker.js normalde harici dosya ister, ancak sadece index.html kalsın dendiği için referanslar yerinde durabilir veya kaldırılabilir. PWA işlevselliği için bu dosyalar gereklidir. -->
+    <link rel="manifest" href="manifest.json">
+</head>
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
+<body>
+    <!-- 0. LOGIN SCREEN (Global) -->
+    <div id="login-screen" class="login-view-container hidden">
+        <div class="login-card">
+            <div class="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
+                <i data-lucide="shield-check" class="text-primary" style="width: 32px; height: 32px;"></i>
+            </div>
+            <h2 class="text-2xl font-bold mb-2">Giriş Yap</h2>
+            <p class="text-xs text-muted mb-8">Devam etmek için şifrenizi girin</p>
 
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            overflow-x: hidden;
-            overflow-y: hidden;
-        }
+            <div class="login-input-wrapper mb-4">
+                <input type="password" id="login-password" class="login-input" placeholder="••••••">
+                <button type="button" class="login-eye-btn" onclick="toggleLoginPassword()">
+                    <i data-lucide="eye" id="login-eye-icon" style="width: 18px; height: 18px;"></i>
+                </button>
+            </div>
 
-        .hidden {
-            display: none !important;
-        }
+            <button onclick="handleLogin()" class="login-btn">Giriş Yap</button>
+            <div class="login-footer">KumanyaPro v2.0</div>
+        </div>
+    </div>
 
-        /* Number input spinner gizleme (Eski Stok ve Miktarlardaki okları kaldırır) */
-        input[type=number]::-webkit-inner-spin-button,
-        input[type=number]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
+    <!-- App Header -->
+    <header class="app-header">
+        <div class="header-content">
+            <div class="logo-area">
+                <div
+                    style="width: 36px; height: 36px; background: var(--primary); border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);">
+                    <i data-lucide="ship" style="color: white; width: 20px; height: 20px;"></i>
+                </div>
+                <div>
+                    <h1 style="font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em;">KUMANYA<span
+                            class="text-primary">PRO</span></h1>
+                    <p style="font-size: 0.65rem; color: var(--text-muted); font-weight: 600; margin-top: -2px;">Gemi
+                        Stok Takip</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="icon-btn" onclick="refreshData()">
+                    <i data-lucide="refresh-cw" style="width: 20px; height: 20px;"></i>
+                </button>
+                <button class="icon-btn">
+                    <i data-lucide="bell" style="width: 20px; height: 20px;"></i>
+                    <span class="badge" id="alert-badge" style="display:none">!</span>
+                </button>
+            </div>
+        </div>
+    </header>
 
-        input[type=number] {
-            -moz-appearance: textfield;
-            appearance: textfield;
-        }
+    <!-- Main Content Area -->
+    <main class="content-area">
 
-        .text-primary {
-            color: var(--primary);
-        }
+        <!-- 1. ÖZET SAYFASI -->
+        <section id="view-home" class="view-section active">
+            <div class="section-header">
+                <h3 class="text-lg font-bold">Genel Bakış</h3>
+                <span id="last-update" class="text-xs text-muted">Az önce güncellendi</span>
+            </div>
 
-        .text-accent {
-            color: var(--accent);
-        }
+            <div class="stats-grid mt-4">
+                <div class="glass stat-card border-b-primary">
+                    <div class="stat-icon bg-primary-light">
+                        <i data-lucide="package" class="text-primary"></i>
+                    </div>
+                    <div>
+                        <p class="stat-title">Toplam Ürün</p>
+                        <h4 id="stat-total-items" class="stat-value font-bold">...</h4>
+                    </div>
+                </div>
+                <div class="glass stat-card border-b-accent">
+                    <div class="stat-icon bg-accent-light">
+                        <i data-lucide="alert-circle" class="text-accent"></i>
+                    </div>
+                    <div>
+                        <p class="stat-title">Kritik Stok</p>
+                        <h4 id="stat-critical-count" class="stat-value font-bold">...</h4>
+                    </div>
+                </div>
+            </div>
 
-        .text-danger {
-            color: var(--danger);
-        }
+            <div id="critical-alert" class="alert-banner warning hidden">
+                <div class="alert-icon">
+                    <i data-lucide="shopping-cart" style="width: 18px; height: 18px;"></i>
+                </div>
+                <div class="alert-text">
+                    <h4 class="font-bold text-sm">Eksik Listesi Hazır</h4>
+                    <p id="critical-alert-msg" class="text-xs">Bazı ürünler kritik seviyenin altında.</p>
+                </div>
+                <button class="alert-action text-accent text-xs" onclick="switchView('view-analytics')">İNCELE</button>
+            </div>
 
-        .text-success {
-            color: var(--success);
-        }
+            <div class="section-header mt-8">
+                <h3 class="text-lg font-bold">Son Hareketler</h3>
+                <button class="text-btn text-xs" onclick="switchView('view-settings')">TÜMÜ</button>
+            </div>
 
-        .text-muted {
-            color: var(--text-muted);
-        }
+            <div class="glass mt-2">
+                <div id="recent-activity-list" class="activity-list">
+                    <!-- Activity items will be loaded here -->
+                    <div class="text-center py-6 text-xs text-muted">Hareketler yükleniyor...</div>
+                </div>
+            </div>
+        </section>
 
-        .text-xs {
-            font-size: 0.75rem;
-        }
+        <!-- 2. STOK LİSTESİ -->
+        <section id="view-inventory" class="view-section">
+            <div class="section-header">
+                <h3 class="text-xl font-bold">Stok Durumu</h3>
+                <div class="flex gap-2">
+                    <button class="icon-btn glass" onclick="toggleStockFilters()">
+                        <i data-lucide="filter" style="width: 18px; height: 18px;"></i>
+                    </button>
+                </div>
+            </div>
 
-        .text-sm {
-            font-size: 0.875rem;
+            <div class="glass search-bar mt-4 mb-4">
+                <i data-lucide="search" class="text-muted" style="width: 18px; height: 18px;"></i>
+                <input type="text" id="inventory-search" placeholder="Ürün ara..." oninput="filterInventory()">
+            </div>
+
+            <div id="stock-category-tabs" class="category-tabs">
+                <!-- Tabs will be populated dynamically -->
+            </div>
+
+            <div id="inventory-container" class="inventory-list mt-4">
+                <!-- Inventory cards will be loaded here -->
+                <div class="text-center py-20">
+                    <div class="spinner mx-auto mb-4"></div>
+                    <p class="text-muted">Stok verileri çekiliyor...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. FATURA GİRİŞİ (KAMERA) -->
+        <section id="view-invoice" class="view-section">
+            <div class="section-header">
+                <h3 class="text-xl font-bold">Fatura İşle</h3>
+                <p class="text-xs text-muted">AI Destekli Okuma</p>
+            </div>
+
+            <div class="top-tabs glass mt-4">
+                <button class="tab-btn active" id="tab-scan" onclick="setInvoiceMode('scan')">Görüntü İşle</button>
+                <button class="tab-btn" id="tab-manual" onclick="setInvoiceMode('manual')">Manuel Giriş</button>
+            </div>
+
+            <!-- Scan Mode Content -->
+            <div id="invoice-scan-content" class="tab-content active mt-6">
+                <div id="camera-trigger" class="glass camera-cta rounded-2xl" onclick="triggerCameraInput()">
+                    <div class="camera-icon-wrapper large-pulse">
+                        <i data-lucide="camera" class="text-primary" style="width: 32px; height: 32px;"></i>
+                    </div>
+                    <h4 class="font-bold mb-2">Fatura Fotoğrafı Yükle</h4>
+                    <p class="text-xs text-muted text-center px-4">Net bir fotoğraf, AI'nın ürünleri ve miktarları doğru
+                        yakalamasını sağlar.</p>
+                    <input type="file" id="invoice-file-input" accept="image/*" class="hidden"
+                        onchange="handleInvoiceImage(event)">
+                </div>
+
+                <div id="scan-preview-area" class="mt-6 hidden">
+                    <div class="glass p-3 relative mb-4">
+                        <img id="scanned-image-preview" src="" class="w-full rounded-lg"
+                            style="max-height: 200px; object-fit: cover;">
+                        <button class="absolute top-5 right-5 bg-danger w-8 h-8 rounded-full flex items-center justify-center"
+                            onclick="resetInvoiceScan()">
+                            <i data-lucide="x" style="color: white; width: 16px; height: 16px;"></i>
+                        </button>
+                    </div>
+
+                    <div id="scan-loading" class="glass p-6 text-center hidden">
+                        <div class="spinner mx-auto mb-4"></div>
+                        <h4 class="font-bold text-primary">AI Veriyi İşliyor</h4>
+                        <p class="text-[10px] text-muted mt-2">Görüntü analiz ediliyor ve tabloya dönüştürülüyor...</p>
+                    </div>
+
+                    <div id="scan-results" class="hidden">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="font-bold">Bulunan Ürünler</h4>
+                            <span id="scan-count" class="text-xs bg-primary-light text-primary px-2 py-1 rounded">0
+                                Ürün</span>
+                        </div>
+                        <div id="scanned-items-list" class="flex flex-col gap-3">
+                            <!-- Scanned items checkboxes here -->
+                        </div>
+                        <button id="btn-save-invoice" class="w-full btn-primary mt-8 shadow-glow"
+                            onclick="saveInvoiceData()">
+                            Seçilenleri Kaydet ve Stok Güncelle
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manual Mode Content -->
+            <div id="invoice-manual-content" class="tab-content mt-6">
+                <div class="glass p-5">
+                    <div class="flex flex-col gap-4">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[10px] uppercase font-bold text-muted ml-1">Ürün Seçin</label>
+                            <select id="manual-urun-sec" class="settings-select">
+                                <option value="">-- Ürün Ara / Seç --</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[10px] uppercase font-bold text-muted ml-1">Miktar</label>
+                            <input type="number" id="manual-urun-miktar" class="settings-input" placeholder="Örn: 20">
+                        </div>
+                        <button class="btn-primary" onclick="addManualInvoice()">Listeye Ekle</button>
+                    </div>
+                </div>
+
+                <div id="manual-list-area" class="mt-6 hidden">
+                    <h4 class="font-bold mb-4">Eklenecek Ürünler</h4>
+                    <div id="manual-items-list" class="flex flex-col gap-3">
+                        <!-- Manual items here -->
+                    </div>
+                    <button class="w-full btn-primary mt-8 shadow-glow" onclick="saveManualData()">
+                        Listeyi Onayla ve Sisteme Gönder
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. ANALİZ SAYFASI -->
+        <section id="view-analytics" class="view-section">
+            <div class="section-header">
+                <h3 class="text-xl font-bold">Stok Analizi</h3>
+                <span class="text-xs text-muted">Aylık Tahminler</span>
+            </div>
+
+            <div class="glass p-5 mt-4 border-b-primary shadow-glow">
+                <div class="flex justify-between">
+                    <h4 class="font-bold">Kritik Limit Durumu</h4>
+                    <span id="total-critical-box" class="text-xs bg-danger-light text-danger px-2 py-1 rounded">0 Ürün
+                        Limit Alti</span>
+                </div>
+                <div id="analysis-summary-text" class="text-xs text-muted mt-3 leading-relaxed">
+                    Yükleniyor...
+                </div>
+            </div>
+
+            <div class="section-header mt-8">
+                <h3 class="text-lg font-bold">Tedarik Önerileri</h3>
+            </div>
+
+            <div id="supply-suggestions" class="flex flex-col gap-4 mt-2">
+                <!-- Suggestions loaded here -->
+                <div class="text-center py-20 text-muted text-xs">Hesaplamalar yapılıyor...</div>
+            </div>
+        </section>
+
+        <!-- 5. AYARLAR SAYFASI -->
+        <section id="view-settings" class="view-section">
+            <div class="section-header mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <i data-lucide="settings" class="text-primary" style="width: 24px; height: 24px;"></i>
+                    </div>
+                    <h3 class="text-xl font-bold">Ayarlar</h3>
+                </div>
+            </div>
+
+            <div class="glass p-5 border-l-accent border-l-4" style="margin-bottom: 24px;">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="font-bold flex items-center gap-2"><i data-lucide="undo-2" class="text-accent"></i> 1.
+                        Son Fatura Girişini Geri Al</h4>
+                </div>
+                <div id="settings-recent-activity">
+                    <div class="text-center py-4 text-xs text-muted">Aktivite geçmişi yükleniyor...</div>
+                </div>
+            </div>
+
+            <div class="glass p-5 border-l-warning border-l-4" style="margin-bottom: 24px;">
+                <h4 class="font-bold flex items-center gap-2 mb-4" style="color: #f59e0b;"><i data-lucide="history"></i>
+                    2. Ürün Geçmişini Sıfırla</h4>
+                <div class="flex flex-col gap-3">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[10px] uppercase font-bold text-muted ml-1">Ürün Listesi</label>
+                        <select id="settings-urun-sec" class="settings-select">
+                            <option value="">-- Ürün Seçin --</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[10px] uppercase font-bold text-muted ml-1">Yeni Başlangıç Miktarı</label>
+                        <input type="number" id="settings-urun-yeni-miktar" class="settings-input"
+                            placeholder="Örn: 50">
+                    </div>
+                    <button id="btn-show-product-modal"
+                        class="w-full py-3 mt-2 rounded-xl font-bold text-sm transition-all"
+                        style="background: linear-gradient(135deg, #f59e0b, #f97316); color: #1a1a2e; border: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);">
+                        Geçmişi Sil ve Yeniden Başlat
+                    </button>
+                </div>
+            </div>
+
+            <div class="glass p-5 border-l-danger border-l-4 mb-20">
+                <h4 class="font-bold flex items-center gap-2 text-danger mb-4"><i data-lucide="alert-octagon"></i> 3.
+                    Tüm Sistemi Sıfırla</h4>
+                <p class="text-xs text-muted mb-4 leading-relaxed">Bu işlem <b>Gemi Kumanya</b> sistemindeki tüm stok,
+                    geçmiş ve takip verilerini kalıcı olarak siler.</p>
+                <button id="btn-show-reset-modal" class="w-full py-3 rounded-xl font-bold text-sm transition-all"
+                    style="background: rgba(239, 68, 68, 0.08); color: #ef4444; border: 2px solid #ef4444; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.15);">
+                    Sistemi Tamamen Sıfırla
+                </button>
+            </div>
+
+            <div class="text-center mt-4 mb-20"></div>
+        </section>
+
+        <!-- Product Reset Modal -->
+        <div id="product-reset-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="alert-triangle" class="text-danger" style="width: 32px; height: 32px;"></i>
+                    </div>
+                    <h3 id="product-modal-title" class="text-lg font-bold text-white mb-2">Ürün Sıfırlansın mı?</h3>
+                    <p class="text-xs text-muted leading-relaxed">Bu ürünün tüm geçmişi temizlenecektir. Bu işlem geri
+                        alınamaz.</p>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end;">
+                    <button id="btn-reset-product"
+                        style="background: #ef4444; border: none; color: white; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">Evet,
+                        Sıfırla</button>
+                    <button
+                        style="background: transparent; border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.7); padding: 10px 20px; border-radius: 8px; cursor: pointer;"
+                        onclick="hideProductModal()">İptal</button>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Reset Confirmation Modal -->
+        <div id="reset-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="alert-triangle" class="text-danger" style="width: 32px; height: 32px;"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2">Sistemi Sıfırla?</h3>
+                    <p class="text-xs text-muted leading-relaxed">Tüm stok verileri ve hareketler kalıcı olarak
+                        silinecektir. Bu işlem asla geri alınamaz.</p>
+                </div>
+
+                <div class="mb-6">
+                    <label class="text-[10px] uppercase font-bold text-muted ml-1 mb-1.5 block">Onaylamak için 'SIFIRLA'
+                        yazın</label>
+                    <input type="text" id="modal-reset-confirm"
+                        class="w-full bg-dark border border-white/10 rounded-xl p-3 text-center text-sm font-bold tracking-widest text-white focus:border-danger outline-none transition-all"
+                        placeholder="">
+                    <span class="text-[10px] text-muted ml-1 mt-1 block">Büyük harf ile yazın</span>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end;">
+                    <button id="btn-reset-all"
+                        style="background: #ef4444; border: none; color: white; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; opacity: 0.5;"
+                        disabled>Evet, Sıfırla</button>
+                    <button
+                        style="background: transparent; border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.7); padding: 10px 20px; border-radius: 8px; cursor: pointer;"
+                        onclick="hideResetModal()">İptal</button>
+                </div>
+            </div>
+        </div>
+
+    </main> <!-- End Main Content -->
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-target="view-home">
+            <i data-lucide="layout-dashboard"></i>
+            <span>Özet</span>
+        </button>
+        <button class="nav-item" data-target="view-inventory">
+            <i data-lucide="layers"></i>
+            <span>Stok</span>
+        </button>
+        <button class="nav-item" data-target="view-invoice">
+            <i data-lucide="scan-line"></i>
+            <span>Fatura</span>
+        </button>
+        <button class="nav-item" data-target="view-analytics">
+            <i data-lucide="bar-chart-2"></i>
+            <span>Analiz</span>
+        </button>
+    </nav>
+
+
+    <!-- App Logic -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('SW Registered', reg))
+                    .catch(err => console.log('SW Error', err));
+            });
         }
-        /* ... rest of full index.html ... (I will use multi_replace for safety if not sure, but here I'll try to push updated version) */
+    </script>
+</body>
+
+</html>
