@@ -1,10 +1,15 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-const { PDFDocument } = require("pdf-lib");
-const unitHelper = require("./unitHelper.js");
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { PDFDocument } from "pdf-lib";
+import * as unitHelper from "./unitHelper.js";
+import { isAuthorized, sendError } from "../utils/supabase.js";
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
   
+  if (!isAuthorized(req)) {
+      return sendError(res, 401, 'Geçersiz veya eksik şifre.');
+  }
+
   const { imageBase64 } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 is required' });
 

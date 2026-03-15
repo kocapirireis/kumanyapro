@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { sbFetch, hesaplaStokMap, isAuthorized, sendError } from '../utils/supabase.js';
 
 export default async function handler(req, res) {
@@ -26,13 +27,16 @@ export default async function handler(req, res) {
             let yeniStok = current;
             
             if (islemTip === 'SAYIM') {
-                 yeniStok = artis; // Set exact
+                 yeniStok = artis;
             } else if (islemTip === 'CIKIS') {
                  yeniStok = current - artis;
             } else { // GIRIS
                  yeniStok = current + artis;
             }
             
+            // Update local map for the next item in the same batch
+            stokMap[urunAd] = yeniStok;
+
             const harNot = `Fatura/Sayım - Değişim: ${artis}`;
             await sbFetch('/rest/v1/hareketler', {
                 method: 'POST',
@@ -43,14 +47,14 @@ export default async function handler(req, res) {
                     urun_adi: urunAd,
                     miktar: Math.abs(artis),
                     toplam_stok: yeniStok,
-                    birim: e.birim,
+                    birim: e.birim || '',
                     tip: islemTip,
                     notlar: harNot
                 }])
             });
 
-            // Upsert
-            const mevcutUrunler = await sbFetch(`/rest/v1/urunler?ad=eq.${encodeURIComponent(urunAd)}&select=id`);
+            // Upsert: Ad ile kontrol et, yoksa ekle. Varsa birimi/kategoriyi bozma (veya güncelleme).
+            const mevcutUrunler = await sbFetch(`/rest/v1/urunler?ad=eq.${encodeURIComponent(urunAd)}&select=id,birim`);
             if (!mevcutUrunler || mevcutUrunler.length === 0) {
                  await sbFetch('/rest/v1/urunler', {
                      method: 'POST',
@@ -58,11 +62,18 @@ export default async function handler(req, res) {
                      body: JSON.stringify([{
                           id: e.id || crypto.randomUUID(),
                           ad: urunAd,
-                          birim: e.birim,
+                          birim: e.birim || '',
                           kategori: e.kategori || 'diger',
                           takip: 'EVET'
                      }])
                  });
+            } else if (e.birim && !mevcutUrunler[0].birim) {
+                // Birim boşsa güncelle
+                await sbFetch(`/rest/v1/urunler?id=eq.${mevcutUrunler[0].id}`, {
+                    method: 'PATCH',
+                    headers: { 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ birim: e.birim })
+                });
             }
             count++;
         }

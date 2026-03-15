@@ -100,7 +100,7 @@ function normalizeUnit(rawUnit) {
 /**
  * Ürün objesini işle (v14.36 - EK VE HARF ARTIĞI KORUMASI)
  */
-function parseProduct(product) {
+export function parseProduct(product) {
   if (!product) return null;
   
   let miktar = parseFloat(product.miktar) || 0;
@@ -160,9 +160,8 @@ function parseProduct(product) {
   };
 }
 
-module.exports = {
+export {
   normalizeUnit,
-  parseProduct,
   extractUnitFromName,
   STANDARD_UNITS
 };

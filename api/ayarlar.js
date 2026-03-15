@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { sbFetch, isAuthorized, sendError } from '../utils/supabase.js';
 
 export default async function handler(req, res) {
@@ -52,8 +53,10 @@ export default async function handler(req, res) {
 
         if (islem === 'tumSistemiSifirla') {
             if (payload.onayKodu !== 'SIFIRLA') throw new Error('Onay kodu hatalı');
-            await sbFetch('/rest/v1/hareketler?id=not.is.null', { method: 'DELETE' });
-            await sbFetch('/rest/v1/urunler?ad=not.is.null', { method: 'DELETE' });
+            // Supabase API requires a filter for DELETE unless explicitly enabled.
+            // Using a broad filter that matches all existing rows.
+            await sbFetch('/rest/v1/hareketler?id=neq.00000000-0000-0000-0000-000000000000', { method: 'DELETE' });
+            await sbFetch('/rest/v1/urunler?id=neq.00000000-0000-0000-0000-000000000000', { method: 'DELETE' });
             return res.status(200).json({ basarili: true });
         }
 
