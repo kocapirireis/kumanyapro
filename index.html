@@ -1,270 +1,470 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>KumanyaPro | Akıllı Stok</title>
-    
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- CSS -->
-    <link rel="stylesheet" href="style.css?v=21">
-    
-    <!-- PWA -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gemi Kumanya Stok</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
-    <meta name="theme-color" content="#050b14">
+    <meta name="theme-color" content="#0ea5e9">
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script src="alias.js"></script>
+    <script src="inventory.js"></script>
+    <script src="api.js"></script>
+    <script src="ui.js"></script>
+    <script src="app.js"></script>
+    <link rel="stylesheet" href="style.css?v=3">
+    <!-- manifest.json ve service-worker.js normalde harici dosya ister, ancak sadece index.html kalsın dendiği için referanslar yerinde durabilir veya kaldırılabilir. PWA işlevselliği için bu dosyalar gereklidir. -->
+    <link rel="manifest" href="manifest.json">
 </head>
+
 <body>
-    <div id="app">
-        <!-- Login View -->
-        <div id="login-view" class="view-section active">
-            <div class="login-view-container">
-                <div class="logo-area mb-6">
-                    <div class="bg-primary-light p-3 rounded-2xl">
-                        <i class="fas fa-box-open text-primary text-3xl"></i>
+
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-content">
+            <div class="logo-area" style="gap: 8px;">
+                <i data-lucide="anchor" class="text-primary" style="width: 24px; height: 24px;"></i>
+                <div class="flex flex-col justify-center">
+                    <h1 class="font-bold text-lg leading-tight">Kumanya<span class="text-primary">Pro</span></h1>
+                    <div class="flex items-center opacity-60 hover:opacity-100 transition-opacity group">
+                        <span id="ship-name-input" contenteditable="true"
+                            class="text-[11px] font-medium text-white/55 italic outline-none border-none bg-none p-0 m-0 cursor-text group-hover:underline focus:underline transition-colors"
+                            placeholder="Gemi Adı">Koca Piri Reis</span>
                     </div>
-                    <h1 class="text-2xl font-bold tracking-tight">Kumanya<span class="text-primary">Pro</span></h1>
                 </div>
-                
-                <div id="login-card" class="login-card">
-                    <h2 class="text-lg font-semibold mb-1">Hoş Geldiniz</h2>
-                    <p class="text-muted text-xs mb-6">Lütfen giriş anahtarınızı girin</p>
-                    
-                    <div class="login-input-wrapper mb-4">
-                        <input type="password" id="login-password" class="login-input" placeholder="Şifreniz" autocomplete="current-password">
-                        <button class="login-eye-btn" id="toggle-password">
-                            <i class="far fa-eye"></i>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" id="btn-settings"><i data-lucide="settings"></i></button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="content-area">
+        <div id="toast-container" class="toast-container"></div>
+
+        <!-- 0. GİRİŞ SAYFASI (Login) -->
+        <section id="view-login" class="view-section active">
+            <div class="login-view-container">
+                <div class="login-card" id="login-card">
+                    <div class="flex items-center gap-3 mb-2">
+                        <i data-lucide="anchor" class="text-primary" style="width: 32px; height: 32px;"></i>
+                        <h1 class="text-2xl font-bold text-white tracking-tight">Kumanya<span
+                                class="text-primary">Pro</span></h1>
+                    </div>
+                    <p class="text-[11px] font-bold text-white/40 uppercase tracking-[0.2em] mb-8">Gemi Stok Yönetimi
+                    </p>
+
+                    <div class="login-input-wrapper mb-2">
+                        <input type="password" id="login-password" class="login-input" placeholder="Parola">
+                        <button type="button" id="btn-toggle-password" class="login-eye-btn">
+                            <i data-lucide="eye" style="width: 18px; height: 18px;"></i>
                         </button>
                     </div>
-                    
-                    <button id="btn-login" class="login-btn">
-                        GİRİŞ YAP
-                    </button>
-                    <p id="login-error" class="text-danger text-xs mt-3 opacity-0 transition-opacity" style="visibility: hidden;">Hatalı şifre, lütfen tekrar deneyin.</p>
+
+                    <div id="login-error"
+                        class="text-danger text-[11px] font-bold mb-4 opacity-0 transition-opacity duration-200"
+                        style="visibility: hidden;">
+                        Hatalı parola, lütfen tekrar deneyin.
+                    </div>
+
+                    <button id="btn-login" class="login-btn">Giriş Yap</button>
                 </div>
-                
-                <div class="login-footer">
-                    Professional Stock Tracking v4.6
+
+                <div class="login-footer">KumanyaPro v4.0</div>
+            </div>
+        </section>
+
+        <!-- 1. ANA SAYFA -->
+        <section id="view-home" class="view-section">
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card glass border-b-accent col-span-1">
+                    <div class="stat-icon bg-accent-light text-accent"><i data-lucide="calendar"></i></div>
+                    <div class="stat-info">
+                        <p class="stat-title">Ortalama Stok Ömrü</p>
+                        <h2 class="stat-value" id="avg-days">- <span class="text-xs font-normal">Gün</span></h2>
+                    </div>
+                </div>
+                <!-- Toplam ürün kartı -->
+                <div class="stat-card glass col-span-1 border-b-primary">
+                    <div class="stat-icon bg-success-light text-success"><i data-lucide="package"></i></div>
+                    <div class="stat-info">
+                        <p class="stat-title">Toplam Ürün</p>
+                        <h2 class="stat-value" id="total-urun-count">0 <span class="text-xs font-normal">Kalem</span>
+                        </h2>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kritik Stok Uyarı Kartı (Yeni) -->
+            <div id="critical-stock-section" class="mt-4 hidden">
+                <div class="section-header mb-2">
+                    <h3 class="text-danger flex items-center gap-1.5">
+                        <i data-lucide="alert-circle" style="width:16px; height:16px;"></i>
+                        Kritik Stok Uyarısı
+                    </h3>
+                </div>
+                <div id="critical-items-container" class="grid grid-cols-1 gap-2">
+                    <!-- Dinamik olarak dolacak -->
+                </div>
+            </div>
+
+            <!-- Critical Item Warning -->
+            <div id="critical-stock-banner" class="alert-banner warning hidden">
+                <div class="alert-icon"><i data-lucide="alert-triangle"></i></div>
+                <div class="alert-text w-full">
+                    <div class="flex justify-between items-center">
+                        <strong id="critical-stock-title">Kritik Seviye: 0 Ürün</strong>
+                        <button class="text-xs text-accent whitespace-nowrap"
+                            onclick="document.querySelector('[data-target=\'view-inventory\']').click();">İncele</button>
+                    </div>
+                    <p id="critical-stock-list">Kritik seviyede ürün bulunmuyor.</p>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="section-header mt-4">
+                <h3>Son Hareketler</h3>
+                <button id="btn-hareketler-tumu" class="text-btn text-muted">Tümü</button>
+            </div>
+            <div class="activity-list glass" id="home-activity-list">
+                <div class="activity-item py-3 text-center text-muted">Henüz hareket yok.</div>
+            </div>
+        </section>
+
+        <!-- 2. STOK SAYFASI -->
+        <section id="view-inventory" class="view-section">
+            <div class="search-bar glass relative">
+                <i data-lucide="search" class="text-muted"></i>
+                <input type="text" placeholder="Ürün ara... (örn: Un, Su)" oninput="window.globalUrunler ? renderInventoryList(window.globalUrunler) : updateUI()">
+            </div>
+
+            <div class="filter-pills" style="position: sticky; top: 0; z-index: 50; background: var(--bg-color); padding: 8px 0; margin-bottom: 8px;">
+                <button class="pill-btn" onclick="setInventoryFilter('ALL', this)">Tümü</button>
+                <button class="pill-btn active" onclick="setInventoryFilter('TRACKED', this)">Takipte</button>
+                <button class="pill-btn" onclick="setInventoryFilter('UNTRACKED', this)">Takip Dışı</button>
+            </div>
+
+            <div class="inventory-list" id="inventory-list">
+                <!-- Ürünler Kategori Grupları ile yüklenecek -->
+            </div>
+
+            <!-- Manuel Ekle Kaldırıldı (Kullanıcı Talebi) -->
+        </section>
+
+        <!-- 3. FATURA EKLE SAYFASI -->
+        <section id="view-invoice" class="view-section">
+
+            <!-- Top Tabs for Invoice Section -->
+            <div class="top-tabs glass mb-4">
+                <button class="tab-btn active" data-tab="tab-fatura">Fatura Çek</button>
+                <button class="tab-btn" data-tab="tab-stok-say">Stok Say</button>
+                <button class="tab-btn" data-tab="tab-gecmis">Geçmiş</button>
+            </div>
+
+            <!-- TAB 1: Fatura Çek -->
+            <div id="tab-fatura" class="tab-content active">
+                <div class="invoice-container">
+
+                    <!-- Ön Kontrol Uyarısı (JS ile göster/gizle yapılacak) -->
+
+
+                    <!-- Fatura Yükleme Alanı -->
+                    <div class="camera-cta glass ripple camera-enlarged relative"
+                        style="position: relative; overflow: hidden;">
+                        <!-- Loader Overlay -->
+                        <div id="fatura-loader" class="loader-overlay">
+                            <div class="spinner"></div>
+                            <div class="loading-text">Fatura İşleniyor...</div>
+                        </div>
+
+                        <div class="camera-icon-wrapper large-pulse">
+                            <i data-lucide="camera" class="text-primary" style="width: 48px; height: 48px;"></i>
+                        </div>
+                        <h3 class="text-lg">Fatura / İrsaliye Tara</h3>
+                        <p class="text-muted text-sm text-center mt-2">Belgenin tamamının göründüğünden emin olun. AI
+                            otomatik okuyacaktır.</p>
+                        <!-- IOS HEIC Uyarısı -->
+                        <div class="text-xs text-danger mt-2 text-center">
+                            * iPhone kullanıyorsanız: Ayarlar -> Kamera -> Biçimler -> En Uyumlu seçtiğinizden emin
+                            olun.
+                        </div>
+                        <input type="file" id="camera-input" accept="image/*" style="display:none">
+                        <button class="btn-primary mt-4 w-full"
+                            onclick="document.getElementById('camera-input').click()">Kamerayı Aç / Seç</button>
+                    </div>
+
+                    <div class="section-header mt-6 hidden" id="son-tarananlar-header">
+                        <h3>Son Tarananlar (Önizleme)</h3>
+                    </div>
+
+                    <div class="scanned-items glass mt-2 hidden">
+                        <div class="scanned-header">
+                            <span class="font-bold o-fatura-baslik">Taranan Belge</span>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <button id="btn-fotograf-temizle" style="background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35); color:#ef4444; font-size:11px; font-weight:600; padding:4px 10px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                                    <i data-lucide="trash-2" style="width:12px; height:12px;"></i> Temizle
+                                </button>
+                                <span class="text-xs px-2 py-1 rounded badge-status hidden">Bekleniyor</span>
+                            </div>
+                        </div>
+                        <div class="text-xs text-muted mb-2 o-fatura-detay">Lütfen bekleyin</div>
+
+                        <!-- Taranan ürünler arası hızlı arama çubuğu -->
+                        <div class="search-bar glass mt-4 mb-2 p-2 flex items-center hidden"
+                            id="taranan-arama-kapsayici" style="border-radius: 8px;">
+                            <i data-lucide="search" class="text-muted" style="width: 16px; height: 16px;"></i>
+                            <input type="text" id="taranan-arama-input" placeholder="Listede ürün ara (örn: peynir)"
+                                style="background:transparent; border:none; outline:none; font-size:12px; margin-left:8px; width:100%; color: var(--text-main);">
+                        </div>
+
+                        <ul class="checklist mt-3">
+                            <!-- Gemini onay listesi (Dinamik eklenecek) -->
+                        </ul>
+
+                        <button id="btn-stoka-ekle" class="btn-primary w-full mt-4">
+                            Stoka Ekle
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB 2: Stok Say -->
+            <div id="tab-stok-say" class="tab-content hidden">
+                <div class="glass p-4" style="padding-bottom: 8px;">
+                    <h3 class="font-bold mb-2">Mevcut Stok Miktarlarını Güncelleyin</h3>
+                    <p class="text-sm text-muted mb-4">Sadece takip edilen ürünler listelenmektedir. Değişmeyenleri boş
+                        bırakabilirsiniz.</p>
+
+
+                    <!-- Sticky Sütun Başlıkları -->
+                    <div class="sticky top-0 z-20 bg-dark/95 backdrop-blur-md"
+                        style="display:grid; grid-template-columns:2fr 1fr 1fr; align-items:center; padding:10px 0; border-bottom:1px solid #444; font-size:12px; font-weight:bold; color:var(--text-main); text-transform:uppercase; margin-bottom: 4px;">
+                        <span style="padding-left:8px;">Ürün Adı</span>
+                        <span style="text-align:center;">Mevcut Stok</span>
+                        <span style="text-align:center;">Yeni Miktar</span>
+                    </div>
+
+                    <div id="stok-sayim-items" class="space-y-1.5 max-h-[60vh] overflow-y-auto pr-1 mb-3">
+                        <!-- Dinamik olarak dolacak -->
+                    </div>
+
+                    <button id="btn-stok-say-kaydet" class="btn-primary w-full"
+                        style="padding: 10px; font-size: 0.85rem;">Stok Sayımını Kaydet</button>
+                </div>
+            </div>
+
+            <!-- TAB 3: Geçmiş -->
+            <div id="tab-gecmis" class="tab-content hidden">
+                <!-- Üst: Fatura Listesi -->
+                <div id="gecmis-fatura-list" style="max-height:180px; overflow-y:auto; margin-bottom:12px;">
+                    <div class="py-6 text-center text-muted text-sm">Yükleniyor...</div>
+                </div>
+
+                <!-- Ayırıcı -->
+                <div style="border-top:2px solid var(--primary); opacity:0.3; margin-bottom:12px;"></div>
+
+                <!-- Alt: Seçilen Faturanın Ürünleri -->
+                <div id="gecmis-fatura-detay" class="glass" style="height:45vh; overflow-y:auto; border-radius:12px; padding:16px;">
+                    <div class="text-center text-muted text-sm py-4">Yukarıdan bir fatura seçin</div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- 4. ANALİZ SAYFASI -->
+        <section id="view-analytics" class="view-section">
+            <div class="consumption-card glass">
+                <div class="card-header pb-2 border-b border-white-10 flex justify-between items-center">
+                    <h3 class="font-bold">Stok Analizi</h3>
+                </div>
+
+                <!-- Arama Motoru -->
+                <div class="search-bar glass flex items-center p-2" style="border-radius: 8px; margin-top: 12px; margin-bottom: 0;">
+                    <i data-lucide="search" class="text-muted" style="width: 16px; height: 16px;"></i>
+                    <input type="text" id="analiz-arama-input" placeholder="Analizlerde ara (örn: peynir)"
+                        style="background:transparent; border:none; outline:none; font-size:12px; margin-left:8px; width:100%; color: var(--text-main);">
+                </div>
+
+                <!-- Sticky Sütun Başlıkları -->
+                <div class="sticky z-40 bg-dark/95 border-b border-white-10 pt-4 pb-2 px-3 mb-2 font-bold text-muted uppercase"
+                    style="position: sticky; top: 0; margin: 0; padding: 4px 12px; display: grid; grid-template-columns: 3fr 1fr 1fr 1fr; align-items: end; z-index: 40; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 13px; letter-spacing: 0.03em; gap: 4px;">
+                    <span style="text-align:left;">Ürün Adı</span>
+                    <span style="text-align:center; line-height:1.3;">Stok<br>Bitiş</span>
+                    <span style="text-align:center; line-height:1.3;">Aylık<br>Tüketim</span>
+                    <span style="text-align:center; line-height:1.3;">Mevcut<br>Stok</span>
+                </div>
+
+                <div id="analytics-items" class="inventory-list" style="padding-right:4px; margin-top:0;">
+                    <div class="text-center py-10 text-muted">Analiz verileri yükleniyor...</div>
+                </div>
+            </div>
+
+            <div class="section-header mt-6">
+                <h3>Önerilen Sipariş Listesi</h3>
+                <button class="icon-btn text-primary" id="btn-download-siparis"><i data-lucide="download"></i></button>
+            </div>
+
+            <div class="order-suggestions mt-2">
+                <!-- Sipariş önerileri dinamik olarak yüklenecek -->
+            </div>
+        </section>
+
+        <!-- 5. AYARLAR SAYFASI -->
+        <section id="view-settings" class="view-section">
+            <div class="section-header mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <i data-lucide="settings" class="text-primary" style="width: 24px; height: 24px;"></i>
+                    </div>
+                    <h3 class="text-xl font-bold">Ayarlar</h3>
+                </div>
+            </div>
+
+            <div class="glass p-5 border-l-accent border-l-4" style="margin-bottom: 24px;">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="font-bold flex items-center gap-2"><i data-lucide="undo-2" class="text-accent"></i> 1.
+                        Son Fatura Girişini Geri Al</h4>
+                </div>
+                <div id="settings-recent-activity">
+                    <div class="text-center py-4 text-xs text-muted">Aktivite geçmişi yükleniyor...</div>
+                </div>
+            </div>
+
+            <div class="glass p-5 border-l-warning border-l-4" style="margin-bottom: 24px;">
+                <h4 class="font-bold flex items-center gap-2 mb-4" style="color: #f59e0b;"><i data-lucide="history"></i>
+                    2. Ürün Geçmişini Sıfırla</h4>
+                <div class="flex flex-col gap-3">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[10px] uppercase font-bold text-muted ml-1">Ürün Listesi</label>
+                        <select id="settings-urun-sec" class="settings-select">
+                            <option value="">-- Ürün Seçin --</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[10px] uppercase font-bold text-muted ml-1">Yeni Başlangıç Miktarı</label>
+                        <input type="number" id="settings-urun-yeni-miktar" class="settings-input"
+                            placeholder="Örn: 50">
+                    </div>
+                    <button id="btn-show-product-modal"
+                        class="w-full py-3 mt-2 rounded-xl font-bold text-sm transition-all"
+                        style="background: linear-gradient(135deg, #f59e0b, #f97316); color: #1a1a2e; border: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);">
+                        Geçmişi Sil ve Yeniden Başlat
+                    </button>
+                </div>
+            </div>
+
+            <div class="glass p-5 border-l-danger border-l-4 mb-20">
+                <h4 class="font-bold flex items-center gap-2 text-danger mb-4"><i data-lucide="alert-octagon"></i> 3.
+                    Tüm Sistemi Sıfırla</h4>
+                <p class="text-xs text-muted mb-4 leading-relaxed">Bu işlem <b>Gemi Kumanya</b> sistemindeki tüm stok,
+                    geçmiş ve takip verilerini kalıcı olarak siler.</p>
+                <button id="btn-show-reset-modal" class="w-full py-3 rounded-xl font-bold text-sm transition-all"
+                    style="background: rgba(239, 68, 68, 0.08); color: #ef4444; border: 2px solid #ef4444; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.15);">
+                    Sistemi Tamamen Sıfırla
+                </button>
+            </div>
+
+            <div class="text-center mt-4 mb-20"></div>
+        </section>
+
+        <!-- Product Reset Modal -->
+        <div id="product-reset-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="alert-triangle" class="text-danger" style="width: 32px; height: 32px;"></i>
+                    </div>
+                    <h3 id="product-modal-title" class="text-lg font-bold text-white mb-2">Ürün Sıfırlansın mı?</h3>
+                    <p class="text-xs text-muted leading-relaxed">Bu ürünün tüm geçmişi temizlenecektir. Bu işlem geri
+                        alınamaz.</p>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end;">
+                    <button id="btn-reset-product"
+                        style="background: #ef4444; border: none; color: white; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">Evet,
+                        Sıfırla</button>
+                    <button
+                        style="background: transparent; border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.7); padding: 10px 20px; border-radius: 8px; cursor: pointer;"
+                        onclick="hideProductModal()">İptal</button>
                 </div>
             </div>
         </div>
 
-        <!-- Main View (App Content) -->
-        <div id="main-view" class="view-section">
-            <!-- Header -->
-            <header class="app-header">
-                <div class="header-content">
-                    <div class="logo-area">
-                        <i class="fas fa-box-open text-primary text-xl"></i>
-                        <h1 class="text-lg font-bold">Kumanya<span class="text-primary">Pro</span></h1>
+
+        <!-- Reset Confirmation Modal -->
+        <div id="reset-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="alert-triangle" class="text-danger" style="width: 32px; height: 32px;"></i>
                     </div>
-                    <div class="flex gap-2">
-                        <button class="icon-btn" id="notifications-btn">
-                            <i class="far fa-bell"></i>
-                            <span class="badge" id="alert-count">0</span>
-                        </button>
-                        <button class="icon-btn" id="profile-btn">
-                            <i class="far fa-user-circle"></i>
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Content Area -->
-            <main class="content-area">
-                <!-- Dashboard View -->
-                <div id="dashboard-view" class="tab-content active">
-                    <div class="p-4">
-                        <div class="flex justify-between mb-4">
-                            <h2 class="text-lg font-bold">Genel Bakış</h2>
-                            <span class="text-xs text-muted" id="current-date">-- -- ----</span>
-                        </div>
-
-                        <!-- Stats Grid -->
-                        <div class="stats-grid mb-6">
-                            <div class="stat-card glass">
-                                <div class="stat-icon bg-primary-light">
-                                    <i class="fas fa-layer-group text-primary"></i>
-                                </div>
-                                <div>
-                                    <p class="stat-title">Toplam Ürün</p>
-                                    <h3 class="stat-value font-bold" id="total-items">0</h3>
-                                </div>
-                            </div>
-                            <div class="stat-card glass">
-                                <div class="stat-icon bg-accent-light">
-                                    <i class="fas fa-exclamation-triangle text-accent"></i>
-                                </div>
-                                <div>
-                                    <p class="stat-title">Kritik Stok</p>
-                                    <h3 class="stat-value font-bold" id="critical-items">0</h3>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Quick Actions -->
-                        <div class="flex gap-3 mb-6">
-                            <button class="pill-btn active flex-1" id="btn-show-all">Tümü</button>
-                            <button class="pill-btn flex-1" id="btn-show-critical">Kritik</button>
-                            <button class="pill-btn flex-1" id="btn-show-recent">Son</button>
-                        </div>
-
-                        <!-- Activity Info -->
-                        <div class="glass mb-6">
-                            <div class="activity-list" id="recent-activity">
-                                <div class="text-center py-4 text-muted text-xs">Aktivite yükleniyor...</div>
-                            </div>
-                        </div>
-                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2">Sistemi Sıfırla?</h3>
+                    <p class="text-xs text-muted leading-relaxed">Tüm stok verileri ve hareketler kalıcı olarak
+                        silinecektir. Bu işlem asla geri alınamaz.</p>
                 </div>
 
-                <!-- Stok View -->
-                <div id="stok-view" class="tab-content">
-                    <div class="p-4">
-                        <div class="search-bar glass mb-4">
-                            <i class="fas fa-search text-muted"></i>
-                            <input type="text" id="inventory-search" placeholder="Ürün veya kategori ara...">
-                        </div>
-
-                        <div class="inventory-list" id="inventory-list">
-                            <!-- Items will be loaded here -->
-                        </div>
-                    </div>
+                <div class="mb-6">
+                    <label class="text-[10px] uppercase font-bold text-muted ml-1 mb-1.5 block">Onaylamak için 'SIFIRLA'
+                        yazın</label>
+                    <input type="text" id="modal-reset-confirm"
+                        class="w-full bg-dark border border-white/10 rounded-xl p-3 text-center text-sm font-bold tracking-widest text-white focus:border-danger outline-none transition-all"
+                        placeholder="">
+                    <span class="text-[10px] text-muted ml-1 mt-1 block">Büyük harf ile yazın</span>
                 </div>
 
-                <!-- Analiz View -->
-                <div id="analiz-view" class="tab-content">
-                    <div class="p-4">
-                        <h2 class="text-lg font-bold mb-4">Tüketim Analizi</h2>
-                        
-                        <div class="glass p-4 mb-6">
-                            <p class="text-sm font-semibold mb-2">Haftalık Dağılım</p>
-                            <div class="bar-chart-container" id="weekly-chart">
-                                <div class="bar-column"><div class="bar-fill bg-primary" style="height: 40%"></div><span class="bar-label">Pzt</span></div>
-                                <div class="bar-column"><div class="bar-fill bg-primary" style="height: 65%"></div><span class="bar-label">Sal</span></div>
-                                <div class="bar-column"><div class="bar-fill bg-primary" style="height: 85%"></div><span class="bar-label">Çar</span></div>
-                                <div class="bar-column"><div class="bar-fill bg-primary" style="height: 50%"></div><span class="bar-label">Per</span></div>
-                                <div class="bar-column"><div class="bar-fill bg-primary" style="height: 95%"></div><span class="bar-label">Cum</span></div>
-                                <div class="bar-column"><div class="bar-fill bg-accent" style="height: 30%"></div><span class="bar-label">Cmt</span></div>
-                                <div class="bar-column"><div class="bar-fill bg-accent" style="height: 20%"></div><span class="bar-label">Paz</span></div>
-                            </div>
-                        </div>
-
-                        <h3 class="text-sm font-bold mb-3">Akıllı Öneriler</h3>
-                        <div id="ai-suggestions">
-                            <div class="text-center py-4 text-muted text-xs">Tahminler hesaplanıyor...</div>
-                        </div>
-                    </div>
+                <div style="display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end;">
+                    <button id="btn-reset-all"
+                        style="background: #ef4444; border: none; color: white; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; opacity: 0.5;"
+                        disabled>Evet, Sıfırla</button>
+                    <button
+                        style="background: transparent; border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.7); padding: 10px 20px; border-radius: 8px; cursor: pointer;"
+                        onclick="hideResetModal()">İptal</button>
                 </div>
-
-                <!-- Ayarlar View -->
-                <div id="ayarlar-view" class="tab-content">
-                    <div class="p-4">
-                        <div class="flex justify-between items-center mb-6">
-                            <h2 class="text-lg font-bold">Ayarlar</h2>
-                            <button class="text-xs text-primary" onclick="window.location.reload()">Sayfayı Yenile</button>
-                        </div>
-                        
-                        <div class="glass p-4 mb-4">
-                            <div class="flex justify-between py-2">
-                                <span>Karanlık Mod</span>
-                                <label class="switch">
-                                    <input type="checkbox" checked>
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            <div class="flex justify-between py-2 border-t border-white/5">
-                                <span>Bildirimler</span>
-                                <label class="switch">
-                                    <input type="checkbox" checked id="toggle-notifications">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="glass p-4">
-                            <h4 class="text-sm font-bold mb-4">Veri Yönetimi</h4>
-                            <button class="pill-btn w-full bg-danger-light text-danger mb-3" id="reset-storage-btn">
-                                Önbelleği Temizle
-                            </button>
-                            <button class="pill-btn w-full bg-primary-light text-primary" id="logout-btn">
-                                ÇIKIŞ YAP
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </main>
-
-            <!-- Bottom Navigation -->
-            <nav class="bottom-nav">
-                <button class="nav-item active" data-tab="dashboard">
-                    <i class="fas fa-home text-xl"></i>
-                    <span>Panel</span>
-                </button>
-                <button class="nav-item" data-tab="stok">
-                    <i class="fas fa-boxes-stacked text-xl"></i>
-                    <span>Stok</span>
-                </button>
-                <div class="nav-scan-placeholder"></div>
-                <button class="nav-item" data-tab="analiz">
-                    <i class="fas fa-chart-pie text-xl"></i>
-                    <span>Analiz</span>
-                </button>
-                <button class="nav-item" data-tab="ayarlar">
-                    <i class="fas fa-cog text-xl"></i>
-                    <span>Ayarlar</span>
-                </button>
-            </nav>
-
-            <!-- Scanner FAB -->
-            <button class="fab shadow-glow" id="scanner-fab">
-                <i class="fas fa-qrcode text-2xl"></i>
-            </button>
+            </div>
         </div>
-    </div>
 
-    <!-- Modals -->
-    <div id="modal-overlay" class="modal-overlay">
-        <div class="modal-content" id="modal-content">
-            <!-- Modal elements will be injected here -->
-        </div>
-    </div>
+    </main> <!-- End Main Content -->
 
-    <!-- Toast Container -->
-    <div id="toast-container" class="toast-container"></div>
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav" style="display: none;">
+        <button class="nav-item active" data-target="view-home">
+            <i data-lucide="layout-dashboard"></i>
+            <span>Özet</span>
+        </button>
+        <button class="nav-item" data-target="view-inventory">
+            <i data-lucide="layers"></i>
+            <span>Stok</span>
+        </button>
+        <button class="nav-item" data-target="view-invoice">
+            <i data-lucide="scan-line"></i>
+            <span>Fatura</span>
+        </button>
+        <button class="nav-item" data-target="view-analytics">
+            <i data-lucide="bar-chart-2"></i>
+            <span>Analiz</span>
+        </button>
+    </nav>
 
-    <!-- Scripts -->
-    <script src="config.js?v=21"></script>
-    <script src="utils.js?v=21"></script>
-    <script src="api.js?v=21"></script>
-    <script src="inventory.js?v=21"></script>
-    <script src="ui.js?v=21"></script>
-    <script src="app.js?v=21"></script>
 
+    <!-- App Logic -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js?v=21').then(reg => {
-                    reg.onupdatefound = () => {
-                        const installingWorker = reg.installing;
-                        installingWorker.onstatechange = () => {
-                            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                window.location.reload();
-                            }
-                        };
-                    };
-                });
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('SW Registered', reg))
+                    .catch(err => console.log('SW Error', err));
             });
         }
     </script>
 </body>
+
 </html>
