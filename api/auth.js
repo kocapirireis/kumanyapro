@@ -1,8 +1,12 @@
-import { isAuthorized, sendError } from '../utils/supabase.js';
+import { isAuthorized, sendError, GUVENLIK_TOKEN } from '../utils/supabase.js';
 
 export default async function handler(req, res) {
     if (req.body?.islem === 'ping') {
         return res.status(200).json({ basarili: true });
+    }
+
+    if (!GUVENLIK_TOKEN) {
+        return sendError(res, 500, 'Sunucu hatası: GUVENLIK_TOKEN ayarlanmamış. Lütfen Vercel ayarlarını kontrol edin.');
     }
 
     if (!isAuthorized(req)) {

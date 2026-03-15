@@ -3,7 +3,7 @@
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
-const GUVENLIK_TOKEN = process.env.GUVENLIK_TOKEN;
+export const GUVENLIK_TOKEN = process.env.GUVENLIK_TOKEN;
 
 // Helper to fetch from Supabase
 export async function sbFetch(path, options = {}) {
