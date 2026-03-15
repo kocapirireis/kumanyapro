@@ -58,9 +58,14 @@ const Utils = {
     getDisplayUnit: function(birimDetay) {
         if (!birimDetay) return "ADET";
         const bd = birimDetay.toUpperCase().trim().replace(/[.]/g, "");
-        // Daha agresif ve kesin birim tanıma
-        if (bd.match(/\d*(KG|GRAM|GR|G|GM)$/) || bd.includes("KG") || bd.includes("GRAM")) return "KG";
-        if (bd.match(/\d*(LT|ML|CL|L)$/) || bd.includes("LT") || bd.includes("ML") || bd.includes(" L")) return "L";
+        
+        // KG Grubu (Sadece tam kelime veya miktar sonu ise)
+        if (bd.match(/(\d+|^)(KG|GRAM|GR|G|GM)(\s|$)/i) || bd === "KG" || bd === "GR") return "KG";
+        
+        // L Grubu (LT, ML, CL, L - Yanına ek gelirse (LI, LU vb.) LITRE olarak algılama)
+        // Özellikle "L" harfinin yanındaki karakterin boşluk veya bitiş olduğundan emin oluyoruz.
+        if (bd.match(/(\d+|^)(LT|ML|CL|L)(\s|$)/i) || bd === "LT" || bd === "L") return "L";
+        
         return "ADET";
     },
 
@@ -69,10 +74,10 @@ const Utils = {
      */
     extractBirimDetay: function(ad) {
         if (!ad) return "";
-        // İsimdeki miktar + birim kalıbını yakalar (Örn: "5LT", "500 GR", "1.5KG")
-        const match = String(ad).match(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X)/i);
+        // İsimdeki miktar + birim kalıbını yakalar. 
+        // Sondaki (?![A-ZİIŞŞĞĞÜÜÖÖ]) kısmı "Lİ", "LÜ" gibi ekleri korur, onları birim sanmaz.
+        const match = String(ad).match(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X)(?![A-ZİIŞŞĞĞÜÜÖÖ])/i);
         if (match) {
-            // Noktaları temizle ve döndür
             return match[0].toUpperCase().replace(/[.]/g, "").trim();
         }
         return "";
