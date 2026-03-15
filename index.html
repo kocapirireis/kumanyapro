@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- CSS -->
-    <link rel="stylesheet" href="style.css?v=130324_v10">
+    <link rel="stylesheet" href="style.css?v=v15_final">
     
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
@@ -52,7 +52,7 @@
                 </div>
                 
                 <div class="login-footer">
-                    Secure Storage System v3.0
+                    Secure Storage System v4.0
                 </div>
             </div>
         </div>
@@ -252,19 +252,31 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="config.js"></script>
-    <script src="utils.js"></script>
-    <script src="api.js"></script>
-    <script src="inventory.js"></script>
-    <script src="ui.js"></script>
-    <script src="app.js"></script>
+    <script src="config.js?v=v15"></script>
+    <script src="utils.js?v=v15"></script>
+    <script src="api.js?v=v15"></script>
+    <script src="inventory.js?v=v15"></script>
+    <script src="ui.js?v=v15"></script>
+    <script src="app.js?v=v15"></script>
 
     <script>
-        // Service Worker registration
+        // Service Worker registration with update notification
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').then(registration => {
+                navigator.serviceWorker.register('/sw.js?v=v15').then(registration => {
                     console.log('SW registered: ', registration);
+                    
+                    // Force update if new worker is waiting
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // New worker installed, reload page to activate
+                                console.log('New SW version found, reloading page...');
+                                window.location.reload();
+                            }
+                        });
+                    });
                 }).catch(registrationError => {
                     console.log('SW registration failed: ', registrationError);
                 });

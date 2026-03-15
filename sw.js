@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'kumanya-stok-v4';
+const CACHE_NAME = 'kumanya-stok-v5';
 const ASSETS = [
   '/',
   '/index.html',
@@ -18,6 +18,21 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS);
     })
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('Old cache deleted:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
   );
 });
 
