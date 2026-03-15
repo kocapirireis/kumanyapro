@@ -318,9 +318,9 @@ function prepareStokEklePayload() {
             const eslestirilen_alias = li.querySelector('.o-ad').dataset.orijinal; // Renamed from originalName
             const inputEskiStok = li.querySelector('.o-eski-stok');
             
-            // Find current product to get display unit
+            // Find current product or detect from unit detail
             const product = Alias.findMatch(ad, window.globalUrunler);
-            const displayUnit = product ? product.birim : "ADET";
+            const displayUnit = product ? product.birim : Utils.getDisplayUnit(birimDetay);
             
             const artis = Inventory.calculateArtis(faturaMiktar, birimDetay, displayUnit);
 
