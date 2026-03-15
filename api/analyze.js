@@ -162,7 +162,7 @@ module.exports = async (req, res) => {
                   if (!na || !nb) return false;
                   if (na === nb) return true;
                   if (na.length <= 3 || nb.length <= 3) return na === nb;
-                  return na.startsWith(nb) || nb.startsWith(na);
+                  return na.includes(nb) || nb.includes(na);
                 };
 
               finalData.urunler = finalData.urunler.map(u => {
