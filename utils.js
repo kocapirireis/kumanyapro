@@ -57,9 +57,10 @@ const Utils = {
      */
     getDisplayUnit: function(birimDetay) {
         if (!birimDetay) return "ADET";
-        const bd = birimDetay.toUpperCase();
-        if (bd.includes("KG") || bd.includes("GR") || bd.includes(" G ")) return "KG";
-        if (bd.includes("LT") || bd.includes(" L ") || bd.includes("ML") || bd.includes("CL")) return "L";
+        const bd = birimDetay.toUpperCase().trim().replace(/[.]/g, "");
+        // Daha agresif ve kesin birim tanıma
+        if (bd.match(/\d*(KG|GRAM|GR|G|GM)$/) || bd.includes("KG") || bd.includes("GRAM")) return "KG";
+        if (bd.match(/\d*(LT|ML|CL|L)$/) || bd.includes("LT") || bd.includes("ML") || bd.includes(" L")) return "L";
         return "ADET";
     },
 
@@ -70,7 +71,11 @@ const Utils = {
         if (!ad) return "";
         // İsimdeki miktar + birim kalıbını yakalar (Örn: "5LT", "500 GR", "1.5KG")
         const match = String(ad).match(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X)/i);
-        return match ? match[0].toUpperCase() : "";
+        if (match) {
+            // Noktaları temizle ve döndür
+            return match[0].toUpperCase().replace(/[.]/g, "").trim();
+        }
+        return "";
     },
 
     /**
