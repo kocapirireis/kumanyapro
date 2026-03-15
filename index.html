@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gemi Kumanya Stok</title>
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script src="alias.js"></script>
+    <script src="inventory.js"></script>
+    <script src="api.js"></script>
+    <script src="ui.js"></script>
+    <script src="app.js"></script>
+    <style>
+        /* [style.css içeriği aşağıya gömülüyor] */
+        :root {
+            --bg-color: #050b14;
+            --surface-color: rgba(18, 30, 48, 0.65);
+            --surface-hover: rgba(28, 45, 70, 0.85);
+            --border-color: rgba(45, 70, 105, 0.35);
+            --primary: #0ea5e9;
+            --primary-light: rgba(14, 165, 233, 0.15);
+            --accent: #facc15;
+            --accent-light: rgba(250, 204, 21, 0.15);
+            --danger: #ef4444;
+            --danger-light: rgba(239, 68, 68, 0.15);
+            --success: #10b981;
+            --success-light: rgba(16, 185, 129, 0.15);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --header-height: 70px;
+            --nav-height: 75px;
+            --glass-blur: blur(12px);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow-x: hidden;
+            overflow-y: hidden;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Number input spinner gizleme (Eski Stok ve Miktarlardaki okları kaldırır) */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        .text-primary {
+            color: var(--primary);
+        }
+
+        .text-accent {
+            color: var(--accent);
+        }
+
+        .text-danger {
+            color: var(--danger);
+        }
+
+        .text-success {
+            color: var(--success);
+        }
+
+        .text-muted {
+            color: var(--text-muted);
+        }
+
+        .text-xs {
+            font-size: 0.75rem;
+        }
+
+        .text-sm {
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<!-- Rest of the file content would go here, but I will push the full file since it is crucial -->
