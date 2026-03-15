@@ -124,13 +124,14 @@ window.updateUI = async function () {
             renderHomeActivity(window.hareketlerGenisletildi ? window.tumHareketler.length : 5);
         }
 
-        // Settings Dropdown
+        // Settings 
         const settingsUrunSec = document.getElementById('settings-urun-sec');
         if (settingsUrunSec) {
             const currentVal = settingsUrunSec.value;
             settingsUrunSec.innerHTML = '<option value="">-- Ürün Seçin --</option>' +
                 data.urunler.map(u => `<option value="${u.ad}" ${u.ad === currentVal ? 'selected' : ''}>${u.ad}</option>`).join('');
         }
+        renderSettingsActivity(window.tumHareketler);
 
         // Inventory List
         renderInventoryList(window.globalUrunler);
@@ -138,6 +139,33 @@ window.updateUI = async function () {
         console.error('[updateUI] Hata:', err);
         showToast("Veriler yüklenirken bir sorun oluştu.", "error");
     }
+};
+
+/**
+ * Render activity in settings page
+ */
+window.renderSettingsActivity = function (hareketler) {
+    const container = document.getElementById('settings-recent-activity');
+    if (!container || !hareketler) return;
+
+    const sonFaturaHareketleri = hareketler.filter(h => h.tip === 'GIRIS').slice(0, 5);
+    if (sonFaturaHareketleri.length === 0) {
+        container.innerHTML = '<div class="text-center py-4 text-xs text-muted">Son fatura hareketi bulunamadı.</div>';
+        return;
+    }
+
+    container.innerHTML = sonFaturaHareketleri.map(h => {
+        const date = new Date(h.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        return `
+            <div class="settings-activity-item flex justify-between items-center">
+                <div class="flex-col">
+                    <div class="text-sm font-bold text-white">${h.urun_adi || h.urunAdi}</div>
+                    <div class="text-[10px] text-muted">${date} • ${h.miktar} ${h.birim || ''}</div>
+                </div>
+                <button class="text-xs text-accent font-bold" onclick="stokGeriAl('${h.id}', this)">Geri Al</button>
+            </div>
+        `;
+    }).join('');
 };
 
 /**
@@ -383,7 +411,7 @@ window.renderScannedItems = function(urunler, status = "success", message = "") 
                     <input type="checkbox" checked class="mt-2 urun-onay-check" data-idx="${idx}">
                     <div class="flex-col w-full pr-8">
                         ${urun.uyari ? `<div class="text-[10px] text-accent mb-1"><i data-lucide="alert-triangle" style="width:12px; height:12px;"></i> ${urun.uyari}</div>` : ''}
-                        <input type="text" class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white mb-1 o-ad uppercase" value="${urun.urun_adi || ''}" data-orijinal="${urun.gemini_adi || ''}">
+                        <input type="text" class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white mb-1 o-ad uppercase" value="${urun.ad || urun.urun_adi || ''}" data-orijinal="${urun.gemini_adi || ''}">
                         <div class="o-status-container text-[10px] mb-2 px-1 italic flex items-center gap-1"></div>
                         <div class="grid gap-2" style="display:grid; grid-template-columns: 0.6fr 1fr 0.8fr 1.2fr;">
                             <div class="flex-col">
