@@ -2843,12 +2843,27 @@
                             `;
 
                             grupUrunler.forEach(u => {
+                                let mVal = parseFloat(u.miktar) || 0;
+                                let bVal = (u.birim || '').toUpperCase();
+                                let displayStr = mVal + " " + (u.birim || '');
+                                
+                                if (bVal === 'KG') {
+                                    if (mVal < 1 && mVal > 0) displayStr = (Math.round(mVal * 1000)) + " GR";
+                                    else if (mVal >= 1000) displayStr = mVal + " KG"; // Devasa rakamları koru ama uyar
+                                } else if (bVal === 'L') {
+                                    if (mVal < 1 && mVal > 0) displayStr = (Math.round(mVal * 1000)) + " ML";
+                                } else if (bVal === 'GR' || bVal === 'G') {
+                                    if (mVal >= 1000) displayStr = (Math.round(mVal / 10) / 100) + " KG";
+                                } else if (bVal === 'ML') {
+                                    if (mVal >= 1000) displayStr = (Math.round(mVal / 10) / 100) + " L";
+                                }
+
                                 const card = document.createElement('div');
                                 card.className = 'inventory-card glass';
                                 card.innerHTML = `
                                         <div class="inv-main">
                                             <h4 class="text-sm font-medium ${u.miktar <= (u.minStok || 0) ? 'text-danger' : ''}">${u.ad}</h4>
-                                            <div class="text-xs text-muted">${u.miktar} ${u.birim || ''}</div>
+                                            <div class="text-xs text-muted">${displayStr}</div>
                                         </div>
                                         <div class="inv-controls">
                                             <select class="cat-select" data-eski="${(u.kategori || 'diger').toLowerCase()}" 
@@ -3622,12 +3637,20 @@
                             let bDetay = inputBirimDetay ? inputBirimDetay.value.trim() : "";
                             let carpan = 1;
                             
-                            // Birim Detay'dan çarpanı ayıkla (Örn: "5 L" -> 5)
                             const mMatch = bDetay.match(/^([\d.,]+)\s*(.*)$/);
                             if (mMatch) carpan = parseFloat(mMatch[1].replace(',', '.')) || 1;
                             
                             let artisMiktari = fMiktar * carpan;
-                            if (!inputFaturaMiktar) artisMiktari = miktarVal; 
+                            if (!inputFaturaMiktar) artisMiktari = miktarVal;
+
+                            // v14.78 - ÖLÇEKLEME HATASI FIX: ArtisMiktari'ni ekrandaki birim (birimVal) ile eşitle
+                            const displayUnit = birimVal.toUpperCase();
+                            const bDetayCap = bDetay.toUpperCase();
+                            if (displayUnit === "KG" && (bDetayCap.includes("GR") || bDetayCap.includes(" G"))) {
+                                artisMiktari = artisMiktari / 1000;
+                            } else if (displayUnit === "L" && bDetayCap.includes("ML")) {
+                                artisMiktari = artisMiktari / 1000;
+                            }
 
                             // Birim Standartlaştırma
                             let harfKismi = birimVal.toLowerCase();
