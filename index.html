@@ -3615,11 +3615,16 @@
                             // v14.71 - KRİTİK DÜZELTME: Stoka eklerken 'Toplam Stok' değerini değil,
                             // sadece 'Fatura Miktarı' (artış miktarı) bilgisini gönderiyoruz.
                             // Aksi halde sistem: Mevcut Stok + (Mevcut + Yeni) şeklinde mükerrer toplama yapıyor.
-                            const inputFaturaMiktar = li.querySelector('.o-miktar');
-                            const inputBirimDetay = li.querySelector('.o-birim-detay');
+                            let fMiktar = inputFaturaMiktar ? parseFloat(inputFaturaMiktar.value.replace(',', '.')) : 0;
+                            let bDetay = inputBirimDetay ? inputBirimDetay.value.trim() : "";
+                            let carpan = 1;
                             
-                            let artisMiktari = inputFaturaMiktar ? parseFloat(inputFaturaMiktar.value.replace(',', '.')) : miktarVal;
-                            if (isNaN(artisMiktari)) artisMiktari = 0;
+                            // Birim Detay'dan çarpanı ayıkla (Örn: "5 L" -> 5)
+                            const mMatch = bDetay.match(/^([\d.,]+)\s*(.*)$/);
+                            if (mMatch) carpan = parseFloat(mMatch[1].replace(',', '.')) || 1;
+                            
+                            let artisMiktari = fMiktar * carpan;
+                            if (inputFaturaMiktar === null) artisMiktari = miktarVal; 
 
                             // Birim Standartlaştırma
                             let harfKismi = birimVal.toLowerCase();
