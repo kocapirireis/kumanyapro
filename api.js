@@ -41,7 +41,7 @@ function temizleVeri(veri) {
  * Supabase fetch wrapper
  */
 async function sbFetch(path, options = {}) {
-    const res = await fetch(SB_URL + path, { ...options, headers: { ...SB_HEADERS, ...(options.headers || {}) } });
+    const res = await fetch(CONFIG.SB_URL + path, { ...options, headers: { ...SB_HEADERS, ...(options.headers || {}) } });
     if (!res.ok) { 
         let errMsg = 'Supabase hatası: ' + res.status; 
         try { 
