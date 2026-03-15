@@ -407,11 +407,13 @@ window.renderScannedItems = function(urunler, status = "success", message = "") 
             const rawName = urun.ad || urun.urun_adi || '';
             const cleanedName = Utils.cleanAd(rawName);
             // Eğer birim_detay boşsa veya sadece 'Adet' yazıyorsa, isimden miktar çekmeyi dene
-            let birimDetay = urun.birim_detay || '';
+            let birimDetay = (urun.birim_detay || '').replace(/[.]/g, "");
             if (!birimDetay || birimDetay.toLowerCase() === 'adet') {
                 const extracted = Utils.extractBirimDetay(rawName);
                 if (extracted) birimDetay = extracted;
             }
+            // Noktaları her durumda temizle (Örn: "Kg." -> "KG")
+            birimDetay = birimDetay.replace(/[.]/g, "").toUpperCase();
 
             const li = document.createElement('li');
             li.className = 'mb-4 glass p-3';
@@ -490,7 +492,10 @@ window.setupAdListener = function(li) {
     inputAd.addEventListener('input', listener);
     listener(); // Sayfa yüklendiğinde ilk eşleşmeyi kontrol et
     li.querySelector('.o-miktar').addEventListener('input', () => updateLiveTotal(li));
-    li.querySelector('.o-birim-detay').addEventListener('input', () => updateLiveTotal(li));
+    li.querySelector('.o-birim-detay').addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[.]/g, "").toUpperCase();
+        updateLiveTotal(li);
+    });
     if (li.querySelector('.o-eski-stok')) {
         li.querySelector('.o-eski-stok').addEventListener('input', () => updateLiveTotal(li));
     }
