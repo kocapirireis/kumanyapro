@@ -59,12 +59,12 @@ const Utils = {
         if (!birimDetay) return "ADET";
         const bd = birimDetay.toUpperCase().trim().replace(/[.]/g, "");
         
-        // KG Grubu (Sadece tam kelime veya miktar sonu ise)
-        if (bd.match(/(\d+|^)(KG|GRAM|GR|G|GM)(\s|$)/i) || bd === "KG" || bd === "GR") return "KG";
+        // KG Grubu (Hassas eşleşme: Boşluklu veya boşluksuz)
+        if (bd.match(/(\d+|^)\s*(KG|GRAM|GR|G|GM)(\s|$)/i) || bd.includes("KG") || bd.includes("GRAM")) return "KG";
         
-        // L Grubu (LT, ML, CL, L - Yanına ek gelirse (LI, LU vb.) LITRE olarak algılama)
-        // Özellikle "L" harfinin yanındaki karakterin boşluk veya bitiş olduğundan emin oluyoruz.
-        if (bd.match(/(\d+|^)(LT|ML|CL|L)(\s|$)/i) || bd === "LT" || bd === "L") return "L";
+        // L Grubu (Hassas eşleşme: Boşluklu veya boşluksuz)
+        // Yanına ek gelirse (LÜ, Lİ gibi) ADET'e düşer, saf L veya LT ise L olur.
+        if (bd.match(/(\d+|^)\s*(LT|ML|CL|L)(\s|$)/i) || bd.includes("LT") || bd.includes("ML") || bd.includes(" L ")) return "L";
         
         return "ADET";
     },
