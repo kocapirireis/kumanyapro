@@ -20,13 +20,16 @@ const Inventory = {
 
         let rawArtis = miktar * carpan;
         
-        // Ölçekleme Kontrolü (Görsel KG ise ve faturadaki GR ise böl)
-        const dUnit = (displayUnit || "").toUpperCase();
+        // --- HASSAS BİRİM HESAPLAMA ---
+        // Eğer displayUnit (veritabanı) belirtilmemişse, faturadaki (Kg, LT vb.) birimi temel al.
+        const targetUnit = displayUnit || Utils.getDisplayUnit(birimDetay);
+        const dUnit = targetUnit.toUpperCase();
         const bDetayCap = bDetay.toUpperCase();
         
-        if (dUnit === "KG" && (bDetayCap.includes("GR") || bDetayCap.includes(" G"))) {
+        // Gram/ML ölçekleme (Eğer hedef KG ise ve girdi GR ise 1000'e böl)
+        if (dUnit === "KG" && (bDetayCap.includes("GR") || bDetayCap.includes(" G ") || bDetayCap.endsWith(" G"))) {
             rawArtis = rawArtis / 1000;
-        } else if (dUnit === "L" && bDetayCap.includes("ML")) {
+        } else if (dUnit === "L" && (bDetayCap.includes("ML") || bDetayCap.includes("CL"))) {
             rawArtis = rawArtis / 1000;
         }
 
