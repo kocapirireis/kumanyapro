@@ -1,446 +1,186 @@
-/* Main Application Logic and Event Handlers */
 
-document.addEventListener('DOMContentLoaded', () => {
-    // API ve Config yüklenmesi için kısa bir süre tanı (Mobil cihazlar için kritik)
-    setTimeout(async () => {
-        // Initial UI Setup
-        if (window.lucide) lucide.createIcons();
+// App Initialization & Routing
+document.addEventListener('DOMContentLoaded', async () => {
+    // UI initialize
+    window.UI = createUI();
+    
+    // Check if logged in - with server verification to prevent Chrome bypass
+    const cachedToken = localStorage.getItem('kumanya_stok_token');
+    if (cachedToken) {
+        window.KUMANYA_TOKEN = cachedToken;
         
-        // Auth Check
-        const girisYapildi = localStorage.getItem('girisYapildi') === 'true';
-        const token = localStorage.getItem('userToken');
-        if (girisYapildi && token) {
-            await uygulamaAc(token);
-        } else {
-            // Logout state: show login screen
-            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-            document.getElementById('view-login').classList.add('active');
-            const bottomNav = document.querySelector('.bottom-nav');
-            if (bottomNav) bottomNav.style.display = 'none';
-        }
-    }, 100);
-
-    // --- NAVIGATION ---
-    const navItems = document.querySelectorAll('.nav-item');
-    const viewSections = document.querySelectorAll('.view-section');
-    const bottomNav = document.querySelector('.bottom-nav');
-
-    navItems.forEach(item => {
-        item.addEventListener('click', async (e) => {
-            const targetId = item.getAttribute('data-target');
-            if (!targetId) return;
-
-            navItems.forEach(nav => nav.classList.remove('active'));
-            item.classList.add('active');
-
-            viewSections.forEach(section => section.classList.remove('active'));
-            const targetView = document.getElementById(targetId);
-            if (targetView) {
-                targetView.classList.add('active');
-                if (window.lucide) lucide.createIcons();
-                
-                // Section-specific loading
-                if (targetId === 'view-home' || targetId === 'view-inventory') await updateUI();
-                if (targetId === 'view-analytics') await updateAnalytics();
-                if (targetId === 'view-invoice') {
-                    const activeTab = document.querySelector('.tab-btn.active');
-                    if (activeTab && activeTab.getAttribute('data-tab') === 'tab-stok-say') {
-                        await renderStokSayimList();
-                    }
-                }
-            }
-        });
-    });
-
-    // --- TABS ---
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            tabBtns.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => { c.classList.remove('active'); c.style.display = 'none'; });
-            btn.classList.add('active');
-            const targetTab = document.getElementById(btn.getAttribute('data-tab'));
-            if (targetTab) {
-                targetTab.classList.add('active');
-                targetTab.style.display = 'block';
-                if (targetTab.id === 'tab-stok-say') renderStokSayimList();
-                if (targetTab.id === 'tab-gecmis') renderGecmisList();
-            }
-        });
-    });
-
-    // --- LOGIN ---
-    const btnLogin = document.getElementById('btn-login');
-    const loginPassword = document.getElementById('login-password');
-    const loginError = document.getElementById('login-error');
-
-    if (btnLogin) {
-        btnLogin.addEventListener('click', async () => {
-            const pass = loginPassword.value;
-            if (!pass) return;
-
-            try {
-                btnLogin.disabled = true;
-                btnLogin.innerHTML = '🔄 Kontrol Ediliyor...';
-                const check = await apiCall('tokenKontrol', { token: pass });
-                if (check && check.basarili) {
-                    await uygulamaAc(pass);
-                } else {
-                    throw new Error("Geçersiz şifre");
-                }
-            } catch (error) {
-                const loginCard = document.getElementById('login-card');
-                if (loginCard) {
-                    loginCard.classList.add('shake');
-                    setTimeout(() => loginCard.classList.remove('shake'), 500);
-                }
-                if (loginError) {
-                    loginError.style.visibility = 'visible';
-                    loginError.classList.replace('opacity-0', 'opacity-100');
-                }
-            } finally {
-                btnLogin.disabled = false;
-                btnLogin.innerHTML = 'Giriş Yap';
-            }
-        });
-    }
-
-    // --- SHIP NAME ---
-    const shipNameInput = document.getElementById('ship-name-input');
-    if (shipNameInput) {
-        const saved = localStorage.getItem('shipName');
-        if (saved) shipNameInput.innerText = saved;
-        shipNameInput.addEventListener('blur', () => localStorage.setItem('shipName', shipNameInput.innerText));
-    }
-
-    // --- CAMERA / OCR ---
-    const cameraInput = document.getElementById('camera-input');
-    if (cameraInput) {
-        cameraInput.addEventListener('change', async (e) => {
-            console.log("[OCR] Dosya seçildi, analiz başlatılıyor...");
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const loader = document.getElementById('fatura-loader');
-            if (loader) loader.classList.add('active');
-
-            try {
-                const base64 = await compressImage(file, 1024, 0.6);
-                const result = await apiCall('faturaOku', { imageBase64: base64 });
-                if (result && result.urunler) {
-                    renderScannedItems(result.urunler, "success", "Fatura işlendi");
-                } else {
-                    renderScannedItems([], "error", result.hata || "Okuma başarısız");
-                }
-            } catch (err) {
-                showToast("Analiz hatası: " + err.message, "error");
-            } finally {
-                if (loader) loader.classList.remove('active');
-                cameraInput.value = '';
-            }
-        });
-    }
-
-    // --- STOK EKLE (OCR SONRASI) ---
-    const btnStokaEkle = document.getElementById('btn-stoka-ekle');
-    if (btnStokaEkle) {
-        btnStokaEkle.addEventListener('click', async () => {
-            const items = prepareStokEklePayload(); // This would be in inventory.js if possible, or here
-            if (items.length === 0) return;
-
-            try {
-                btnStokaEkle.disabled = true;
-                btnStokaEkle.textContent = 'Kaydediliyor...';
-                await apiCall('stokEkle', { urunler: items, tip: 'GIRIS' });
-                showToast("Stoka eklendi!", "success");
-                document.querySelector('.scanned-items').classList.add('hidden');
-                await updateUI();
-                // Go to home
-                document.querySelector('[data-target="view-home"]').click();
-            } catch(err) {
-                showToast("Hata: " + err.message, "error");
-            } finally {
-                btnStokaEkle.disabled = false;
-                btnStokaEkle.textContent = 'Stoka Ekle';
-            }
-        });
-    }
-
-    // --- DOWNLOAD SIPARIS ---
-    const btnDownloadSiparis = document.getElementById('btn-download-siparis');
-    if (btnDownloadSiparis) {
-        btnDownloadSiparis.addEventListener('click', () => {
-            const kritikler = window.globalUrunler.filter(u => u.takip && u.miktar <= (u.minStok || 0));
-            if (kritikler.length === 0) {
-                showToast("Sipariş listesi şu an boş (Kritik ürün yok).", "info");
+        try {
+            // Sunucudan token'ın hala geçerli olup olmadığını kontrol et
+            const check = await API.auth.login(cachedToken);
+            if (check.basarili) {
+                showMainView();
+                loadInitialData();
+                setupEventListeners();
+                updateDateTime();
+                setInterval(updateDateTime, 60000);
                 return;
             }
-
-            const printWindow = window.open('', '_blank');
-            const date = new Date().toLocaleDateString('tr-TR');
-            const shipName = localStorage.getItem('shipName') || 'KUMANYASTOK';
-
-            let html = `
-                <html>
-                <head>
-                    <title>Sipariş Listesi - ${date}</title>
-                    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-                    <style>
-                        body { background: white; color: black; padding: 40px; font-family: sans-serif; }
-                        .header { border-bottom: 2px solid black; margin-bottom: 20px; padding-bottom: 10px; }
-                        table { width: 100%; border-collapse: collapse; }
-                        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-                        th { background-color: #f2f2f2; }
-                    </style>
-                </head>
-                <body>
-                    <div class="header flex justify-between items-end">
-                        <div>
-                            <h1 class="text-2xl font-bold uppercase">${shipName}</h1>
-                            <p class="text-sm">Eksik Ürünler / Sipariş Listesi</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-bold">${date}</p>
-                        </div>
-                    </div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Ürün Adı</th>
-                                <th>Mevcut Stok</th>
-                                <th>Birim</th>
-                                <th>Sipariş Miktarı</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${kritikler.map(u => `
-                                <tr>
-                                    <td class="font-bold">${u.ad}</td>
-                                    <td>${u.miktar}</td>
-                                    <td>${u.birim}</td>
-                                    <td style="width: 150px;"></td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                    <div class="mt-8 text-xs text-gray-500">
-                        * Bu liste Kumanya Stok sistemi tarafından otomatik oluşturulmuştur.
-                    </div>
-                    <script>
-                        setTimeout(() => { window.print(); }, 300);
-                    <\/script>
-                </body>
-                </html>
-            `;
-            printWindow.document.write(html);
-            printWindow.document.close();
-        });
-    }
-
-    // --- ACTIVITY UNDO DELEGATION ---
-    const homeActivityList = document.getElementById('home-activity-list');
-    if (homeActivityList) {
-        homeActivityList.addEventListener('click', (e) => {
-            if (e.target.classList.contains('btn-geri-al')) {
-                const id = e.target.dataset.id;
-                stokGeriAl(id, e.target);
-            }
-        });
-    }
-
-    // --- SETTINGS NAVIGATION ---
-    const btnSettings = document.getElementById('btn-settings');
-    if (btnSettings) {
-        btnSettings.addEventListener('click', () => {
-            navItems.forEach(nav => nav.classList.remove('active'));
-            viewSections.forEach(section => section.classList.remove('active'));
-            const settingsView = document.getElementById('view-settings');
-            if (settingsView) {
-                settingsView.classList.add('active');
-                if (window.lucide) lucide.createIcons();
-                updateUI();
-            }
-        });
-    }
-
-    // --- SETTINGS MODALS ---
-    document.getElementById('btn-show-product-modal')?.addEventListener('click', () => {
-        const ad = document.getElementById('settings-urun-sec').value;
-        if (!ad) { showToast("Lütfen ürün seçin", "warning"); return; }
-        document.getElementById('product-modal-title').innerText = `${ad} Sıfırlansın mı?`;
-        document.getElementById('product-reset-modal').classList.add('active');
-    });
-
-    document.getElementById('btn-reset-product')?.addEventListener('click', () => resetUrun());
-
-    document.getElementById('btn-show-reset-modal')?.addEventListener('click', () => {
-        document.getElementById('reset-modal').classList.add('active');
-    });
-
-    const resetConfirmInput = document.getElementById('modal-reset-confirm');
-    const btnResetAll = document.getElementById('btn-reset-all');
-    resetConfirmInput?.addEventListener('input', (e) => {
-        const val = e.target.value;
-        if (btnResetAll) {
-            btnResetAll.disabled = val !== 'SIFIRLA';
-            btnResetAll.style.opacity = val === 'SIFIRLA' ? '1' : '0.5';
+        } catch (e) {
+            console.error("Auth verification failed:", e);
         }
-    });
+        
+        // Geçersiz veya süresi dolmuş token - temizle ve girişe yönlendir
+        localStorage.removeItem('kumanya_stok_token');
+        showLoginView();
+    } else {
+        showLoginView();
+    }
 
-    document.getElementById('btn-reset-all')?.addEventListener('click', () => resetApp());
-
-    window.hideProductModal = () => document.getElementById('product-reset-modal').classList.remove('active');
-    window.hideResetModal = () => document.getElementById('reset-modal').classList.remove('active');
+    setupEventListeners();
+    updateDateTime();
+    setInterval(updateDateTime, 60000);
 });
 
-/**
- * Switch app state to open
- */
-async function uygulamaAc(token) {
-    localStorage.setItem('userToken', token);
-    localStorage.setItem('girisYapildi', 'true');
-    
-    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-    document.getElementById('view-home').classList.add('active');
-    
-    const bottomNav = document.querySelector('.bottom-nav');
-    if (bottomNav) bottomNav.style.display = 'flex';
-    
-    await updateUI();
-}
-
-/**
- * Prepare items for stock update from scanned list
- */
-function prepareStokEklePayload() {
-    const items = [];
-    document.querySelectorAll('.checklist li').forEach(li => {
-        const checkbox = li.querySelector('.urun-onay-check');
-        if (checkbox && checkbox.checked) {
-            const ad = li.querySelector('.o-ad').value;
-            const faturaMiktar = li.querySelector('.o-miktar').value;
-            const birimDetay = li.querySelector('.o-birim-detay').value;
-            const eslestirilen_alias = li.querySelector('.o-ad').dataset.orijinal; // Renamed from originalName
-            const inputEskiStok = li.querySelector('.o-eski-stok');
-            
-            // Find current product or detect from unit detail
-            const product = Alias.findMatch(ad, window.globalUrunler);
-            const displayUnit = product ? product.birim : Utils.getDisplayUnit(birimDetay);
-            
-            const artis = Inventory.calculateArtis(faturaMiktar, birimDetay, displayUnit);
-
-            items.push({
-                ad: ad,
-                id: product ? product.id : '',
-                miktar: artis,
-                fatura_miktar: Utils.safeParseFloat(faturaMiktar),
-                birim_detay: birimDetay,
-                birim: displayUnit,
-                kategori: product ? product.kategori : 'diger',
-                eskiStok: inputEskiStok && inputEskiStok.value ? Utils.safeParseFloat(inputEskiStok.value) : (product ? product.miktar : undefined),
-                notlar: 'Fatura Girişi',
-                eslestirilen_alias: eslestirilen_alias // Use the renamed variable
-            });
+async function loadInitialData() {
+    UI.showLoader('Stok verileri yükleniyor...');
+    try {
+        const data = await API.stok.oku();
+        if (data.basarili) {
+            window.KUMANYA_DATA = data.veri;
+            UI.renderDashboard(data.veri);
+            UI.renderInventory(data.veri.stok);
+            UI.renderActivity(data.veri.sonHareketler);
         }
-    });
-    return items;
-}
-
-/**
- * Image compression utility
- */
-function compressImage(file, maxWidthOrHeight, quality) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let w = img.width, h = img.height;
-                if (w > h) { if (w > maxWidthOrHeight) { h *= maxWidthOrHeight / w; w = maxWidthOrHeight; } }
-                else { if (h > maxWidthOrHeight) { w *= maxWidthOrHeight / h; h = maxWidthOrHeight; } }
-                canvas.width = w; canvas.height = h;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, w, h);
-                resolve(canvas.toDataURL('image/jpeg', quality));
-            };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    });
-}
-/**
- * Change product field (category, tracking)
- */
-window.changeUrunAlan = async function (urunAdi, alan, deger, element) {
-    try {
-        if (element) element.disabled = true;
-        await apiCall('takipGuncelle', { urunAdi, alan, deger });
-        showToast("Güncellendi", "success");
-        await updateUI();
     } catch (err) {
-        showToast("Güncelleme hatası", "error");
+        UI.showToast('Veriler yüklenemedi: ' + err.message, 'error');
     } finally {
-        if (element) element.disabled = false;
+        UI.hideLoader();
     }
-};
+}
 
-/**
- * Logout
- */
-window.logoutApp = function () {
-    localStorage.removeItem('girisYapildi');
-    localStorage.removeItem('userToken');
-    window.location.reload();
-};
+function showMainView() {
+    document.getElementById('login-view').classList.remove('active');
+    document.getElementById('main-view').classList.add('active');
+}
 
+function showLoginView() {
+    document.getElementById('main-view').classList.remove('active');
+    document.getElementById('login-view').classList.add('active');
+}
 
-/**
- * Reset specific product history
- */
-window.resetUrun = async function () {
-    const urunSec = document.getElementById('settings-urun-sec');
-    const ad = urunSec.value;
-    const miktarInput = document.getElementById('settings-urun-yeni-miktar');
-    const miktar = parseFloat(miktarInput ? miktarInput.value : 0) || 0;
+function setupEventListeners() {
+    // Login
+    document.getElementById('login-btn').onclick = handleLogin;
+    document.getElementById('login-key').onkeypress = (e) => {
+        if (e.key === 'Enter') handleLogin();
+    };
 
-    if (!ad) { showToast("Lütfen ürün seçin", "warning"); return; }
+    // Password view toggle
+    document.getElementById('toggle-password').onclick = () => {
+        const input = document.getElementById('login-key');
+        const icon = document.querySelector('#toggle-password i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.replace('far', 'fas');
+        } else {
+            input.type = 'password';
+            icon.classList.replace('fas', 'far');
+        }
+    };
 
-    try {
-        await apiCall('urunGecmisiSifirla', { urunAdi: ad, baslangicMiktar: miktar });
-        showToast("Ürün sıfırlandı", "success");
-        hideProductModal();
-        await updateUI();
-    } catch (e) { showToast("Hata oluştu", "error"); }
-};
+    // Navigation
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.onclick = () => {
+            const tab = item.dataset.tab;
+            if (tab) switchTab(tab);
+        };
+    });
 
-/**
- * Reset entire system
- */
-window.resetApp = async function () {
-    const codeInput = document.getElementById('modal-reset-confirm');
-    const code = codeInput ? codeInput.value : '';
-    if (code !== 'SIFIRLA') { showToast("Onay kodu hatalı", "error"); return; }
-    if (!confirm('TÜM SİSTEM SIFIRLANACAK! Bu işlem geri alınamaz. Emin misiniz?')) return;
+    // FAB / Scanner
+    document.getElementById('scanner-fab').onclick = () => {
+        UI.showScannerModal();
+    };
 
-    try {
-        await apiCall('tumSistemiSifirla', { onayKodu: 'SIFIRLA' });
-        showToast("Sistem sıfırlandı", "success");
-        hideResetModal();
+    // Search
+    document.getElementById('inventory-search').oninput = (e) => {
+        const query = e.target.value.toLowerCase();
+        UI.filterInventory(query);
+    };
+
+    // Quick Filters
+    document.getElementById('btn-show-all').onclick = () => switchTab('stok');
+    document.getElementById('btn-show-critical').onclick = () => {
+        switchTab('stok');
+        UI.filterInventory('', 'critical');
+    };
+    
+    // Logout
+    document.getElementById('logout-btn').onclick = () => {
+        localStorage.removeItem('kumanya_stok_token');
         window.location.reload();
-    } catch (e) { showToast("Sıfırlama hatası", "error"); }
-};
+    };
 
-/**
- * Undo movement
- */
-window.stokGeriAl = async function (id, element) {
-    if (!confirm('Bu işlemi geri almak istediğinize emin misiniz?')) return;
+    // Reset Cache
+    document.getElementById('reset-storage-btn').onclick = () => {
+        if (confirm('Tüm uygulama verileri ve şifre sıfırlanacak. Emin misiniz?')) {
+            localStorage.clear();
+            if ('serviceWorker' in navigator) {
+                caches.keys().then(names => {
+                    for (let name of names) caches.delete(name);
+                });
+            }
+            window.location.reload();
+        }
+    };
+}
+
+async function handleLogin() {
+    const keyInput = document.getElementById('login-key');
+    const key = keyInput.value;
+    
+    if (!key || key.length < 4) {
+        keyInput.parentElement.classList.add('shake');
+        setTimeout(() => keyInput.parentElement.classList.remove('shake'), 400);
+        return;
+    }
+
+    UI.showLoader('Doğrulanıyor...');
     try {
-        if (element) element.disabled = true;
-        await apiCall('hareketGeriAl', { id });
-        showToast("İşlem geri alındı", "success");
-        await updateUI();
-    } catch (e) { showToast("Hata oluştu", "error"); }
-};
+        const res = await API.auth.login(key);
+        if (res.basarili) {
+            localStorage.setItem('kumanya_stok_token', key);
+            window.KUMANYA_TOKEN = key;
+            showMainView();
+            loadInitialData();
+            UI.showToast('Başarıyla giriş yapıldı', 'success');
+        } else {
+            keyInput.parentElement.classList.add('shake');
+            setTimeout(() => keyInput.parentElement.classList.remove('shake'), 400);
+            UI.showToast('Hatalı giriş anahtarı', 'error');
+        }
+    } catch (err) {
+        UI.showToast('Giriş hatası: ' + err.message, 'error');
+    } finally {
+        UI.hideLoader();
+    }
+}
+
+function switchTab(tabId) {
+    // Update Nav
+    document.querySelectorAll('.nav-item').forEach(item => {
+        if (item.dataset.tab === tabId) item.classList.add('active');
+        else item.classList.remove('active');
+    });
+
+    // Update Content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        if (content.id === tabId + '-view') content.classList.add('active');
+        else content.classList.remove('active');
+    });
+
+    // Special logic for tabs
+    if (tabId === 'analiz') UI.renderAnalysis(window.KUMANYA_DATA);
+}
+
+function updateDateTime() {
+    const el = document.getElementById('current-date');
+    if (!el) return;
+    const now = new Date();
+    const options = { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+    el.innerText = now.toLocaleDateString('tr-TR', options);
+}
