@@ -35,15 +35,21 @@ const Utils = {
      */
     cleanAd: function(ad) {
         if (!ad) return "";
-        let clean = String(ad)
-            // 1. Birim ve miktar ibarelerini temizle (Uzun isimler önce gelmeli: LT vs L)
-            .replace(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|KG|GR|GM|ML|LT|CL|MT|GR\.|KG\.|L|G|X)/gi, "")
-            .replace(/\s*\d+\s*(ADET|PAKET|KOLI|KG|GR|ML|LT|L|G)\b/gi, "")
-            // 2. Parantezleri temizle
+        let clean = String(ad).toUpperCase()
+            // 1. Birim ve miktar ibarelerini temizle (Örn: 500GR, 5LT, 1.5 KG)
+            .replace(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)\.?\b/gi, "")
+            .replace(/\s*\d+\s*(ADET|PAKET|KOLI|KG|GR|ML|LT|L|G|T)\.?\b/gi, "")
+            // 2. Parantezleri ve içeriğini temizle
             .replace(/\(.*\)/g, "")
-            // 3. Fazla boşlukları temizle
+            // 3. Özel karakterleri boşluğa çevir
+            .replace(/[*\-_#]/g, " ")
+            // 4. Fazla boşlukları temizle
             .replace(/\s+/g, " ").trim();
-        return clean.toUpperCase();
+        
+        // 5. Sondaki anlamsız tekil karakterleri temizle (Artık karakterleri siler)
+        clean = clean.replace(/\s+[A-Z0-9]$/g, "");
+            
+        return clean.trim();
     },
 
     /**
@@ -55,6 +61,16 @@ const Utils = {
         if (bd.includes("KG") || bd.includes("GR") || bd.includes(" G ")) return "KG";
         if (bd.includes("LT") || bd.includes(" L ") || bd.includes("ML") || bd.includes("CL")) return "L";
         return "ADET";
+    },
+
+    /**
+     * Ürün adından çıkarılan miktar bilgisini (5L, 500GR vb.) geri getirir.
+     */
+    extractBirimDetay: function(ad) {
+        if (!ad) return "";
+        // İsimdeki miktar + birim kalıbını yakalar (Örn: "5LT", "500 GR", "1.5KG")
+        const match = String(ad).match(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X)/i);
+        return match ? match[0].toUpperCase() : "";
     },
 
     /**
