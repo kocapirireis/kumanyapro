@@ -179,8 +179,8 @@ async function apiCall(islem, payload = {}) {
 
         if (islem === 'tumSistemiSifirla') {
             if (payload.onayKodu !== 'SIFIRLA') throw new Error('Onay kodu hatalı');
-            await sbFetch('/rest/v1/hareketler?id=neq.""', { method: 'DELETE' });
-            await sbFetch('/rest/v1/urunler?id=gt.0', { method: 'DELETE' });
+            await sbFetch('/rest/v1/hareketler?id=not.is.null', { method: 'DELETE' });
+            await sbFetch('/rest/v1/urunler?ad=not.is.null', { method: 'DELETE' });
             return true;
         }
 
