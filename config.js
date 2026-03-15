@@ -1,6 +1,12 @@
+// App configuration and global constants
 const CONFIG = {
-    // Tüm API ve Database işlemleri artık güvenli bir şekilde
-    // Vercel Serverless Functions (/api/backend) üzerinden yapılıyor.
-    // Lütfen SUPABASE_URL, SUPABASE_KEY ve GUVENLIK_TOKEN değerlerini
-    // Vercel Environment Variables kısmına ekleyin.
+    // Vercel backend URL will be relative for production
+    // For local testing, you can change this to your local dev server
+    API_BASE: '',
+    VERSION: '4.0.0-restore',
+    STORAGE_KEYS: {
+        TOKEN: 'userToken',
+        SETTINGS: 'appSettings',
+        INVENTORY_CACHE: 'inventoryCache'
+    }
 };
