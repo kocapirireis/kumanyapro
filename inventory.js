@@ -12,9 +12,13 @@ const Inventory = {
         const miktar = Utils.safeParseFloat(faturaMiktari);
         
         let carpan = 1;
-        const bDetay = (birimDetay || "").trim();
+        const bDetay = (birimDetay || "").trim().toUpperCase();
+        
+        // Eğer birim detayında Lİ, LÜ gibi paket ekleri varsa çarpanı 1 kabul et (Kullanıcı paket sayısını girmek istiyor)
+        const isPackageCount = bDetay.match(/(LI|Lİ|LU|LÜ|ADET|PAKET|KOLİ|KOLI)\b/i);
+
         const mMatch = bDetay.match(/^([\d.,]+)\s*(.*)$/);
-        if (mMatch) {
+        if (mMatch && !isPackageCount) {
             carpan = Utils.safeParseFloat(mMatch[1]) || 1;
         }
 
