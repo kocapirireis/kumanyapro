@@ -9,14 +9,17 @@
  */
 function birimHesapla(hamMiktar, hamBirim) {
   let miktar = parseFloat(String(hamMiktar).replace(',', '.')) || 0;
-  let birimStr = (hamBirim || "").toUpperCase().trim();
+  // v14.80 - trToEn kullanarak Türkçe karakterleri birim isimlerinden ayıkla
+  let birimStrOrig = String(hamBirim || "").trim();
+  let birimStr = (typeof trToEn === "function") ? trToEn(birimStrOrig) : birimStrOrig.toUpperCase();
   
   let miktarComputed = miktar;
   let birimTag = "ADET";
 
   // Regex: 500GR, 5L, 1.5KG gibi yapıları ayıkla
   // [1]: Sayı (500, 5, 1.5), [2]: Birim (GR, L, KG)
-  const match = birimStr.match(/^([\d.,]+)\s*(KG|GR|G|L|LT|ML|LU|ADET|PAKET|KOLI)?$/i);
+  // Sondaki $ işareti kaldırıldı, böylece "5 KGLIK" gibi ekler Regex'in sayı ve ana birimi yakalamasına engel olmayacak
+  const match = birimStr.match(/^([\d.,]+)\s*(KG|GR|G|L|LT|ML|ADET|PAKET|KOLI|KUTU)?/i);
   
   if (match) {
     let carpan = parseFloat(match[1].replace(",", ".")) || 1;
@@ -49,8 +52,8 @@ function birimHesapla(hamMiktar, hamBirim) {
   } else {
     // Sayı yoksa (Sadece "KG" veya "ADET" yazıyorsa)
     if (birimStr.includes("KG")) birimTag = "KG";
-    else if (birimStr.includes("GR") || birimStr === "G") birimTag = "GR";
-    else if (birimStr.includes("L") || birimStr === "LT") birimTag = "L";
+    else if (birimStr.match(/\bGR\b|\bG\b/)) birimTag = "GR";
+    else if (birimStr.match(/\bL\b|\bLT\b/)) birimTag = "L";
     else if (birimStr.includes("ML")) birimTag = "ML";
     else birimTag = "ADET";
   }
@@ -140,7 +143,10 @@ function mevcutStoklaTopla(yeniUrunler) {
   const mevcutUrunler = mevcutVeri.urunler || [];
   
   return tData.map(yeni => {
-    const mevcut = mevcutUrunler.find(m => urunEslestir(m.ad, yeni.ad));
+    // utils.gs'deki urunEslestir kullanılıyor
+    const mevcut = mevcutUrunler.find(m => {
+      return (typeof urunEslestir === 'function') ? urunEslestir(m.ad, yeni.ad) : m.ad.toLowerCase() === yeni.ad.toLowerCase();
+    });
     const eskiMiktar = mevcut ? mevcut.miktar : 0;
     
     return {
