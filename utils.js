@@ -38,8 +38,9 @@ const Utils = {
         let clean = String(ad).toUpperCase()
             // 1. Birim, miktar ve Türkçe ekleri (Lİ, LÜ vb.) temizle
             // Örn: 100 LÜ, 12 Lİ, 500GR, 5LT
-            .replace(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?\.?\b/gi, "")
-            .replace(/\s*\d+\s*(ADET|PAKET|KOLI|KG|GR|ML|LT|L|G|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?\.?\b/gi, "")
+            // \b yerine (\s|$) kullanarak Türkçe karakterlerin (İ, Ü) sonunda da çalışmasını sağlıyoruz.
+            .replace(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?(\s|$)/gi, " ")
+            .replace(/\s*\d+\s*(ADET|PAKET|KOLI|KG|GR|ML|LT|L|G|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?(\s|$)/gi, " ")
             // 2. Parantezleri ve içeriğini temizle
             .replace(/\(.*\)/g, "")
             // 3. Özel karakterleri boşluğa çevir
@@ -76,7 +77,7 @@ const Utils = {
     extractBirimDetay: function(ad) {
         if (!ad) return "";
         // İsimden miktar + birim + ek (LI, LÜ vb.) yapısını yakalar
-        const match = String(ad).match(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?\.?\b/i);
+        const match = String(ad).match(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?(\s|$)/i);
         if (match) {
             return match[0].toUpperCase().replace(/[.]/g, "").trim();
         }
