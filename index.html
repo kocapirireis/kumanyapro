@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- CSS -->
-    <link rel="stylesheet" href="style.css?v=17">
+    <link rel="stylesheet" href="style.css?v=18">
     
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
@@ -26,7 +26,7 @@
 <body>
     <div id="app">
         <!-- Login View -->
-        <div id="login-view" class="view-section">
+        <div id="login-view" class="view-section active">
             <div class="login-view-container">
                 <div class="logo-area mb-6">
                     <div class="bg-primary-light p-3 rounded-2xl">
@@ -35,24 +35,25 @@
                     <h1 class="text-2xl font-bold tracking-tight">Kumanya<span class="text-primary">Pro</span></h1>
                 </div>
                 
-                <div class="login-card">
+                <div id="login-card" class="login-card">
                     <h2 class="text-lg font-semibold mb-1">Hoş Geldiniz</h2>
                     <p class="text-muted text-xs mb-6">Lütfen giriş anahtarınızı girin</p>
                     
                     <div class="login-input-wrapper mb-4">
-                        <input type="password" id="login-key" class="login-input" placeholder="Şifreniz" autocomplete="current-password">
+                        <input type="password" id="login-password" class="login-input" placeholder="Şifreniz" autocomplete="current-password">
                         <button class="login-eye-btn" id="toggle-password">
                             <i class="far fa-eye"></i>
                         </button>
                     </div>
                     
-                    <button id="login-btn" class="login-btn">
+                    <button id="btn-login" class="login-btn">
                         GİRİŞ YAP
                     </button>
+                    <p id="login-error" class="text-danger text-xs mt-3 opacity-0 transition-opacity" style="visibility: hidden;">Hatalı şifre, lütfen tekrar deneyin.</p>
                 </div>
                 
                 <div class="login-footer">
-                    Secure Storage System v4.2
+                    Secure Storage System v4.3
                 </div>
             </div>
         </div>
@@ -252,18 +253,18 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="config.js?v=17"></script>
-    <script src="utils.js?v=17"></script>
-    <script src="api.js?v=17"></script>
-    <script src="inventory.js?v=17"></script>
-    <script src="ui.js?v=17"></script>
-    <script src="app.js?v=17"></script>
+    <script src="config.js?v=18"></script>
+    <script src="utils.js?v=18"></script>
+    <script src="api.js?v=18"></script>
+    <script src="inventory.js?v=18"></script>
+    <script src="ui.js?v=18"></script>
+    <script src="app.js?v=18"></script>
 
     <script>
         // Service Worker registration with update notification
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js?v=17').then(registration => {
+                navigator.serviceWorker.register('/sw.js?v=18').then(registration => {
                     console.log('SW registered: ', registration);
                     
                     registration.addEventListener('updatefound', () => {
