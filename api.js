@@ -218,22 +218,19 @@ async function apiCall(islem, payload = {}) {
         }
 
         if (islem === 'faturaOku') {
-            const token = localStorage.getItem('userToken');
-            const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+            const response = await fetch('/api/analyze', {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    islem: 'faturaOku', 
-                    token: token, 
                     imageBase64: payload.imageBase64 
                 }),
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
-            if (!response.ok) throw new Error('Backend bağlantı hatası');
+            if (!response.ok) throw new Error('OCR Analiz Hatası (Vercel Backend)');
             const result = await response.json();
-            if (result.basarili) return result.veri;
-            throw new Error(result.hata || 'Analiz başarısız');
+            if (result && result.urunler) return result;
+            throw new Error(result.error || 'Analiz başarısız');
         }
 
         throw new Error('Bilinmeyen işlem: ' + islem);
