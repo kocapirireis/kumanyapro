@@ -435,7 +435,7 @@ window.renderScannedItems = function(urunler, status = "success", message = "") 
                             </div>
                             <div class="flex-col">
                                 <label class="text-xs text-accent font-bold mb-1 block text-center">Eski Stok</label>
-                                <input type="number" class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white text-center o-eski-stok" placeholder="">
+                                <input type="number" class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white text-center o-eski-stok" placeholder="Mevcut">
                             </div>
                             <div class="flex-col">
                                 <label class="text-xs text-primary font-bold mb-1 block text-center">Toplam Stok</label>
@@ -475,8 +475,7 @@ window.setupAdListener = function(li) {
                 // Input değerini de eşleşen isme (büyük harf) çevir
                 inputAd.value = upperAd;
             }
-            // Eski stok kutusunu boş bırakıyoruz
-            if (inputEskiStok) inputEskiStok.placeholder = "";
+            if (inputEskiStok) inputEskiStok.placeholder = `Mevcut: ${found.miktar}`;
         } else {
             // Eşleşme yoksa sadece girilen yazıyı büyük harf yap
             inputAd.value = inputAd.value.toUpperCase();
