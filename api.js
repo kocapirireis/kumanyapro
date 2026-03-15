@@ -1,9 +1,23 @@
 /* API and Data Sync Logic */
 
-// SB_URL and SB_KEY should be handled via Config/Secrets but for now keeping them consistent with previous structure
-const SB_URL = 'https://mrwqkwarsyhoyyjhxlsz.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yd3Frd2Fyc3lob3l5amh4bHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMDEyMDUsImV4cCI6MjA4ODU3NzIwNX0.YlhTmbK7sF8U_-7VhQKDJtQ80B3C78MtJrDX5IvES9k';
-const SB_HEADERS = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY };
+// SB_HEADERS will be initialized when needed or after CONFIG is ready
+var SB_HEADERS = {};
+
+function initializeApi() {
+    if (typeof CONFIG === 'undefined' || !CONFIG.SB_KEY) {
+        console.error("[API] HATA: CONFIG.SB_KEY bulunamadı! config.js yüklenmemiş olabilir.");
+        return;
+    }
+    SB_HEADERS = {
+        'Content-Type': 'application/json',
+        'apikey': CONFIG.SB_KEY,
+        'Authorization': 'Bearer ' + CONFIG.SB_KEY
+    };
+    console.log("[API] Başarıyla ilklendirildi.");
+}
+
+// İlk çağrıda ilklendir
+setTimeout(initializeApi, 0);
 
 /**
  * Sanitize data from API
@@ -65,7 +79,7 @@ async function apiCall(islem, payload = {}) {
     const timeoutId = setTimeout(() => controller.abort(), timeoutLimit);
 
     try {
-        console.log(\`[API] \${islem} baslatıldı... URL:\`, CONFIG.APPS_SCRIPT_URL);
+        console.log(`[API] ${islem} baslatıldı... URL:`, CONFIG.APPS_SCRIPT_URL);
         
         if (!CONFIG.APPS_SCRIPT_URL) {
             throw new Error("Apps Script URL'si yapılandırılmamış (config.js eksik).");
@@ -138,13 +152,13 @@ async function apiCall(islem, payload = {}) {
         }
 
         if (islem === 'hareketGeriAl') {
-            await sbFetch(\`/rest/v1/hareketler?id=eq.\${payload.id}\`, { method: 'DELETE' });
+            await sbFetch(`/rest/v1/hareketler?id=eq.${payload.id}`, { method: 'DELETE' });
             return true;
         }
 
         if (islem === 'topluHareketGeriAl') {
-            const ids = payload.ids.map(id => \`"\${id}"\`).join(',');
-            await sbFetch(\`/rest/v1/hareketler?id=in.(\${ids})\`, { method: 'DELETE' });
+            const ids = payload.ids.map(id => `"${id}"`).join(',');
+            await sbFetch(`/rest/v1/hareketler?id=in.(${ids})`, { method: 'DELETE' });
             return true;
         }
 
@@ -152,13 +166,13 @@ async function apiCall(islem, payload = {}) {
             const { urunAdi, alan, deger } = payload;
             const col = alan === 'takip' ? 'takip' : alan === 'kategori' ? 'kategori' : null;
             if (!col) throw new Error('Geçersiz alan');
-            await sbFetch(\`/rest/v1/urunler?ad=eq.\${encodeURIComponent(urunAdi)}\`, { method: 'PATCH', body: JSON.stringify({ [col]: deger }), headers: { Prefer: 'return=minimal' } });
+            await sbFetch(`/rest/v1/urunler?ad=eq.${encodeURIComponent(urunAdi)}`, { method: 'PATCH', body: JSON.stringify({ [col]: deger }), headers: { Prefer: 'return=minimal' } });
             return true;
         }
 
         if (islem === 'urunGecmisiSifirla') {
             const { urunAdi, baslangicMiktar } = payload;
-            await sbFetch(\`/rest/v1/hareketler?urun_adi=eq.\${encodeURIComponent(urunAdi)}\`, { method: 'DELETE' });
+            await sbFetch(`/rest/v1/hareketler?urun_adi=eq.${encodeURIComponent(urunAdi)}`, { method: 'DELETE' });
             await sbFetch('/rest/v1/hareketler', { method: 'POST', body: JSON.stringify([{ id: crypto.randomUUID(), tarih: new Date().toISOString(), urun_adi: urunAdi, miktar: baslangicMiktar, birim: '', tip: 'BASLANGIC', notlar: 'Sifirlama sonrasi' }]), headers: { Prefer: 'return=minimal' } });
             return true;
         }
