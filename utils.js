@@ -36,9 +36,10 @@ const Utils = {
     cleanAd: function(ad) {
         if (!ad) return "";
         let clean = String(ad).toUpperCase()
-            // 1. Birim ve miktar ibarelerini temizle (Örn: 500GR, 5LT, 1.5 KG)
-            .replace(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)\.?\b/gi, "")
-            .replace(/\s*\d+\s*(ADET|PAKET|KOLI|KG|GR|ML|LT|L|G|T)\.?\b/gi, "")
+            // 1. Birim, miktar ve Türkçe ekleri (Lİ, LÜ vb.) temizle
+            // Örn: 100 LÜ, 12 Lİ, 500GR, 5LT
+            .replace(/(\d+[.,]?\d*)\s*(ADET|PAKET|KOLI|GRAM|GR|KG|ML|LT|CL|MT|GM|L|G|X|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?\.?\b/gi, "")
+            .replace(/\s*\d+\s*(ADET|PAKET|KOLI|KG|GR|ML|LT|L|G|T)(Ü|İ|LI|Lİ|LU|LÜ|LİK|LUK)?\.?\b/gi, "")
             // 2. Parantezleri ve içeriğini temizle
             .replace(/\(.*\)/g, "")
             // 3. Özel karakterleri boşluğa çevir
@@ -46,8 +47,8 @@ const Utils = {
             // 4. Fazla boşlukları temizle
             .replace(/\s+/g, " ").trim();
         
-        // 5. Sondaki anlamsız tekil karakterleri temizle (Artık karakterleri siler)
-        clean = clean.replace(/\s+[A-Z0-9]$/g, "");
+        // 5. Sondaki anlamsız tekil karakterleri temizle
+        clean = clean.replace(/\s+[A-Z0-9İIŞŞĞĞÜÜÖÖ]$/g, "");
             
         return clean.trim();
     },
