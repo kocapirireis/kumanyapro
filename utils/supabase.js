@@ -36,9 +36,8 @@ export function hesaplaStokMap(hareketler) {
 }
 
 export function isAuthorized(req) {
-    if (req.method !== 'POST') return false;
-    const { token } = req.body;
-    return token && token === GUVENLIK_TOKEN;
+    // KULLANICI TALEBİ: Şifresiz giriş için yetkilendirme kontrolü devre dışı.
+    return true; 
 }
 
 export function sendError(res, statusCode, errMessage) {
