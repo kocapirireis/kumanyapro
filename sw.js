@@ -1,8 +1,9 @@
 
-const CACHE_NAME = 'kumanya-stok-v1';
+const CACHE_NAME = 'kumanya-stok-v3';
 const ASSETS = [
   '/',
   '/index.html',
+  '/style.css',
   '/api.js',
   '/app.js',
   '/ui.js',
