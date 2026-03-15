@@ -14,7 +14,7 @@ window.setInventoryFilter = function(filter, element) {
 /**
  * Global Toast Function
  */
-function showToast(message, type = 'info', duration = 4000) {
+window.showToast = function(message, type = 'info', duration = 4000) {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
