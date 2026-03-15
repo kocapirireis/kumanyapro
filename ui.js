@@ -411,7 +411,7 @@ window.renderScannedItems = function(urunler, status = "success", message = "") 
                     <input type="checkbox" checked class="mt-2 urun-onay-check" data-idx="${idx}">
                     <div class="flex-col w-full pr-8">
                         ${urun.uyari ? `<div class="text-[10px] text-accent mb-1"><i data-lucide="alert-triangle" style="width:12px; height:12px;"></i> ${urun.uyari}</div>` : ''}
-                        <input type="text" class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white mb-1 o-ad uppercase" value="${urun.ad || urun.urun_adi || ''}" data-orijinal="${urun.gemini_adi || ''}">
+                        <input type="text" class="bg-dark border border-white-10 rounded text-sm p-2 w-full text-white mb-1 o-ad uppercase" value="${Utils.cleanAd(urun.ad || urun.urun_adi || '')}" data-orijinal="${urun.gemini_adi || ''}">
                         <div class="o-status-container text-[10px] mb-2 px-1 italic flex items-center gap-1"></div>
                         <div class="grid gap-2" style="display:grid; grid-template-columns: 0.6fr 1fr 0.8fr 1.2fr;">
                             <div class="flex-col">
@@ -500,7 +500,7 @@ window.updateLiveTotal = function(li) {
     // Find current product to get display unit
     const ad = li.querySelector('.o-ad').value;
     const product = Alias.findMatch(ad, window.globalUrunler);
-    const displayUnit = product ? product.birim : "ADET";
+    const displayUnit = product ? product.birim : Utils.getDisplayUnit(inputBirimDet.value);
 
     const artis = Inventory.calculateArtis(m, b, displayUnit);
     const eski = e !== "" ? Utils.safeParseFloat(e) : (product ? product.miktar : 0);
