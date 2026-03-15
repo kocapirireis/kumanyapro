@@ -12,11 +12,17 @@ async function apiCall(islem, payload = {}) {
         console.log(`[API] ${islem} başlatılıyor...`);
         const token = localStorage.getItem('userToken') || payload.token;
 
-        let endpoint = '/api/backend';
+        let endpoint = '';
+        if (islem === 'faturaOku') endpoint = '/api/analyze';
+        else if (islem === 'stokOku') endpoint = '/api/stokOku';
+        else if (islem === 'stokEkle') endpoint = '/api/stokEkle';
+        else if (islem === 'analizHesapla') endpoint = '/api/analiz';
+        else if (islem === 'tokenKontrol' || islem === 'ping') endpoint = '/api/auth';
+        else endpoint = '/api/ayarlar'; // tumSistemiSifirla, hareketGeriAl, vs.
+
         let bodyPayload = { islem, token, payload };
 
         if (islem === 'faturaOku') {
-            endpoint = '/api/analyze';
             bodyPayload = { imageBase64: payload.imageBase64 }; // Analyze doesn't check token immediately yet
         }
 
